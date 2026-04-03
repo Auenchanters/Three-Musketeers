@@ -17,7 +17,7 @@ from collections import namedtuple
 # Dummy reward for backwards compatibility in tests
 DummyReward = namedtuple("DummyReward", ["value", "message", "is_valid"])
 
-class TestEnvWrapper:
+class _TestEnvWrapper:
     """Wraps the fully compliant OpenEnv to behave like our old local tuple version strictly for testing."""
     def __init__(self):
         self._env = CloudFinOpsEnvironment()
@@ -33,7 +33,7 @@ class TestEnvWrapper:
 
 @pytest.fixture
 def env():
-    return TestEnvWrapper()
+    return _TestEnvWrapper()
 
 @pytest.fixture
 def easy_env(env):
@@ -57,33 +57,33 @@ def hard_env(env):
 
 class TestReset:
     def test_reset_returns_observation(self, env):
-        obs = env.reset("easy_orphan_cleanup")
+        obs = env.reset(task_id="easy_orphan_cleanup")
         assert obs is not None
         assert obs.step_number == 0
         assert len(obs.resources) == 10
 
     def test_reset_medium(self, env):
-        obs = env.reset("medium_rightsize")
+        obs = env.reset(task_id="medium_rightsize")
         assert len(obs.resources) == 20
         assert obs.budget_target == 3800.0
 
     def test_reset_hard(self, env):
-        obs = env.reset("hard_dependency_migration")
+        obs = env.reset(task_id="hard_dependency_migration")
         assert len(obs.resources) == 35
         assert obs.maintenance_window == "02:00-06:00 UTC"
 
     def test_metrics_hidden_after_reset(self, easy_env):
-        obs = easy_env.reset("easy_orphan_cleanup")
+        obs = easy_env.reset(task_id="easy_orphan_cleanup")
         for r in obs.resources:
             assert r.metrics is None, f"Metrics should be hidden for {r.resource_id}"
 
     def test_reset_invalid_task(self, env):
         with pytest.raises(ValueError):
-            env.reset("nonexistent")
+            env.reset(task_id="nonexistent")
 
     @pytest.mark.parametrize("task_id", ["easy_orphan_cleanup", "medium_rightsize", "hard_dependency_migration"])
     def test_reset_all_tasks(self, env, task_id):
-        obs = env.reset(task_id)
+        obs = env.reset(task_id=task_id)
         assert obs.task_description != ""
         assert obs.total_monthly_cost > 0
 
@@ -261,8 +261,7 @@ class TestOracleSolution:
         """Running the oracle solution should achieve near-perfect score."""
         from data.generator import load_solution
         solution = load_solution("easy_orphan_cleanup")
-        
-        env.reset("easy_orphan_cleanup")
+        env.reset(task_id="easy_orphan_cleanup")
         
         for step_data in solution["optimal_action_sequence"]:
             action = Action(
@@ -285,7 +284,7 @@ class TestOracleSolution:
         from data.generator import load_solution
         solution = load_solution("medium_rightsize")
         
-        env.reset("medium_rightsize")
+        env.reset(task_id="medium_rightsize")
         
         for step_data in solution["optimal_action_sequence"]:
             action = Action(
@@ -305,7 +304,7 @@ class TestOracleSolution:
         from data.generator import load_solution
         solution = load_solution("hard_dependency_migration")
         
-        env.reset("hard_dependency_migration")
+        env.reset(task_id="hard_dependency_migration")
         
         for step_data in solution["optimal_action_sequence"]:
             action = Action(

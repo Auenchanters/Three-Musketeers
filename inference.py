@@ -168,90 +168,92 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
         return '{"action_type": "commit_changes", "reason": "LLM error, committing."}'
 
 
-# ─── Environment API Client ──────────────────────────────────────────────
+# ─── Environment Client ───────────────────────────────────────────────────
 
-class EnvClient:
-    """HTTP client for the CloudFinOpsEnv server."""
+from client import CloudFinOpsClient
+from models.action import Action, ActionType
 
-    def __init__(self, base_url: str):
-        self.base_url = base_url.rstrip("/")
-        self.client = httpx.Client(timeout=30.0)
 
-    def reset(self, task_id: str) -> dict:
-        """POST /reset"""
-        resp = self.client.post(f"{self.base_url}/reset", json={"task_id": task_id})
-        resp.raise_for_status()
-        return resp.json()
-
-    def step(self, action: dict) -> dict:
-        """POST /step"""
-        resp = self.client.post(f"{self.base_url}/step", json=action)
-        resp.raise_for_status()
-        return resp.json()
-
-    def state(self) -> dict:
-        """GET /state"""
-        resp = self.client.get(f"{self.base_url}/state")
-        resp.raise_for_status()
-        return resp.json()
-
-    def health(self) -> dict:
-        """GET /health"""
-        resp = self.client.get(f"{self.base_url}/health")
-        resp.raise_for_status()
-        return resp.json()
-
-    def close(self):
-        self.client.close()
+def obs_to_dict(obs) -> dict:
+    """Convert an Observation object (or dict) to a plain dict for format_observation."""
+    if isinstance(obs, dict):
+        return obs
+    # Pydantic model → dict
+    d = obs.model_dump() if hasattr(obs, "model_dump") else obs.__dict__
+    # Flatten resources that are Pydantic models
+    if "resources" in d:
+        d["resources"] = [
+            r.model_dump() if hasattr(r, "model_dump") else r
+            for r in d["resources"]
+        ]
+    return d
 
 
 # ─── Main Loop ────────────────────────────────────────────────────────────
 
-def run_task(llm_client: OpenAI, env_client: EnvClient, task_name: str) -> float:
-    """Run a single task and return the score."""
+def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
+    """Run a single task using the OpenEnv WebSocket client and return the score."""
     history = []
     rewards = []
 
     log_start(task=task_name, env="CloudFinOpsEnv", model=MODEL_NAME)
 
-    # Reset environment
-    obs = env_client.reset(task_name)
+    # Use the sync wrapper of the OpenEnv WebSocket client
+    sync_client = CloudFinOpsClient(base_url=env_url).sync()
 
-    for step_num in range(1, MAX_STEPS + 1):
-        # Format observation for LLM
-        obs_text = format_observation(obs)
+    with sync_client:
+        # Reset environment
+        result = sync_client.reset(task_id=task_name)
+        obs = obs_to_dict(result.observation)
 
-        # Get LLM action
-        action_text = get_agent_action(llm_client, obs_text, history)
-        action = parse_action(action_text)
+        for step_num in range(1, MAX_STEPS + 1):
+            # Format observation for LLM
+            obs_text = format_observation(obs)
 
-        # Execute action
-        result = env_client.step(action)
-        obs = result["observation"]
-        reward = result["reward"]["value"] if isinstance(result["reward"], dict) else result["reward"]
-        done = result["done"]
-        rewards.append(reward)
+            # Get LLM action
+            action_text = get_agent_action(llm_client, obs_text, history)
+            action_dict = parse_action(action_text)
 
-        log_step(step=step_num, action=action, reward=reward, done=done)
+            # Build typed Action object for the OpenEnv client
+            action = Action(
+                action_type=action_dict.get("action_type", "commit_changes"),
+                resource_id=action_dict.get("resource_id"),
+                new_size=action_dict.get("new_size"),
+                reason=action_dict.get("reason"),
+            )
 
-        history.append({
-            "action": action_text,
-            "result": obs.get("message", ""),
-        })
+            # Execute action
+            result = sync_client.step(action)
+            obs = obs_to_dict(result.observation)
+            reward = result.reward if isinstance(result.reward, (int, float)) else 0.0
+            done = result.done
+            rewards.append(reward)
 
-        if done:
-            break
+            log_step(step=step_num, action=action_dict, reward=reward, done=done)
 
-    # Get final state for scoring
-    final_state = env_client.state()
+            history.append({
+                "action": action_text,
+                "result": obs.get("message", ""),
+            })
+
+            if done:
+                break
+
+        # Get final state for scoring
+        try:
+            final_state = sync_client.state()
+            state_dict = final_state.model_dump() if hasattr(final_state, "model_dump") else vars(final_state)
+        except Exception:
+            state_dict = {}
+
     score = min(max(sum(rewards), 0.0), 1.0)
 
     # Use actual graded score from state if available
-    actual_savings = final_state.get("cost_saved", 0)
-    optimal_savings = final_state.get("optimal_savings", 1)
+    actual_savings = state_dict.get("cost_saved", 0)
+    optimal_savings = state_dict.get("optimal_savings", 1)
     if optimal_savings > 0:
         ratio = actual_savings / optimal_savings
-        has_violations = len(final_state.get("safety_violations", [])) > 0
+        has_violations = len(state_dict.get("safety_violations", [])) > 0
         if has_violations:
             score = 0.0
         else:
@@ -270,12 +272,11 @@ def main():
         print("[INFO] Running in dry-run mode — will test env connectivity only.", flush=True)
 
     llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy")
-    env_client = EnvClient(ENV_URL)
 
     # Health check
     try:
-        health = env_client.health()
-        print(f"[INFO] Environment healthy: {health}", flush=True)
+        health = httpx.get(f"{ENV_URL}/health", timeout=10.0)
+        print(f"[INFO] Environment healthy: {health.json()}", flush=True)
     except Exception as e:
         print(f"[ERROR] Cannot connect to environment at {ENV_URL}: {e}", flush=True)
         sys.exit(1)
@@ -283,16 +284,16 @@ def main():
     scores = {}
     for task in TASKS:
         try:
-            score = run_task(llm_client, env_client, task)
+            score = run_task(llm_client, ENV_URL, task)
             scores[task] = score
             print(f"\n{'='*50}")
             print(f"Task {task}: {score:.3f}")
             print(f"{'='*50}\n")
         except Exception as e:
             print(f"[ERROR] Task {task} failed: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             scores[task] = 0.0
-
-    env_client.close()
 
     print("\n" + "=" * 60)
     print("FINAL SCORES")

@@ -157,9 +157,11 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             reward = RewardCalculator.invalid_action_reward(
                 f"Unknown action type: {action.action_type}"
             )
-            self._message = reward.message
         else:
             reward = handler(action)
+
+        # Always update message from reward so obs.message reflects this action
+        self._message = reward.message
 
         # Check if max steps reached
         if self._steps_taken >= self._max_steps and not self._done:
