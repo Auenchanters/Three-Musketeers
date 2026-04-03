@@ -10,7 +10,9 @@ from typing import List, Dict
 from .observation import Resource
 
 
-class EnvironmentState(BaseModel):
+from openenv.core.env_server.types import State as BaseState
+
+class EnvironmentState(BaseState):
     """
     Full internal environment state (god-mode view).
 

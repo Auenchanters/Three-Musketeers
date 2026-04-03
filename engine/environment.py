@@ -17,8 +17,9 @@ from engine.dependency_graph import DependencyGraph
 from engine.reward_calculator import RewardCalculator
 from engine.grader import Grader
 
+from openenv.core.env_server.interfaces import Environment
 
-class CloudFinOpsEnvironment:
+class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState]):
     """
     The CloudFinOpsEnv environment.
     
@@ -67,7 +68,7 @@ class CloudFinOpsEnvironment:
 
     # ─── reset() ─────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str) -> Observation:
+    def reset(self, seed: Optional[int] = None, episode_id: Optional[str] = None, task_id: str = "easy_orphan_cleanup", **kwargs) -> Observation:
         """
         Start a new episode for the given task.
         
@@ -121,7 +122,7 @@ class CloudFinOpsEnvironment:
 
     # ─── step() ──────────────────────────────────────────────────────────
 
-    def step(self, action: Action) -> Tuple[Observation, Reward, bool, dict]:
+    def step(self, action: Action, timeout_s: Optional[float] = None, **kwargs) -> Observation:
         """
         Process an agent action and return (observation, reward, done, info).
         """
@@ -171,7 +172,14 @@ class CloudFinOpsEnvironment:
             "safety_violations": list(self._safety_violations),
         }
 
-        return self._build_observation(), reward, self._done, info
+        obs = self._build_observation()
+        obs.reward = reward.value  # Using openenv's Observation reward field
+        obs.done = self._done      # Using openenv's Observation done field
+        
+        # Add metadata internally or append the info object
+        obs.metadata = info
+
+        return obs
 
     # ─── state() ─────────────────────────────────────────────────────────
 

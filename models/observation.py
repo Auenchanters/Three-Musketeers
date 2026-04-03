@@ -72,7 +72,9 @@ class Resource(BaseModel):
         return round(self.cost_per_hour * 730, 2)
 
 
-class Observation(BaseModel):
+from openenv.core.env_server.types import Observation as BaseObservation
+
+class Observation(BaseObservation):
     """
     What the agent sees at each step.
 

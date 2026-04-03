@@ -29,7 +29,9 @@ class ActionType(str, Enum):
     CHECK_DEPS = "check_deps"             # Check what other resources depend on this one
 
 
-class Action(BaseModel):
+from openenv.core.env_server.types import Action as BaseAction
+
+class Action(BaseAction):
     """
     What the agent does at each step.
 

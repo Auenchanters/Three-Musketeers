@@ -12,26 +12,44 @@ from models import Action, ActionType
 from engine.environment import CloudFinOpsEnvironment
 
 
+from collections import namedtuple
+
+# Dummy reward for backwards compatibility in tests
+DummyReward = namedtuple("DummyReward", ["value", "message", "is_valid"])
+
+class TestEnvWrapper:
+    """Wraps the fully compliant OpenEnv to behave like our old local tuple version strictly for testing."""
+    def __init__(self):
+        self._env = CloudFinOpsEnvironment()
+        
+    def __getattr__(self, name):
+        return getattr(self._env, name)
+        
+    def step(self, action):
+        obs = self._env.step(action)
+        # Re-pack the Observation properties back into the 4-part tuple the tests expect
+        reward_obj = DummyReward(obs.reward, obs.message, True)
+        return obs, reward_obj, obs.done, getattr(obs, "metadata", {})
+
 @pytest.fixture
 def env():
-    return CloudFinOpsEnvironment()
-
+    return TestEnvWrapper()
 
 @pytest.fixture
 def easy_env(env):
-    env.reset("easy_orphan_cleanup")
+    env.reset(task_id="easy_orphan_cleanup")
     return env
 
 
 @pytest.fixture
 def medium_env(env):
-    env.reset("medium_rightsize")
+    env.reset(task_id="medium_rightsize")
     return env
 
 
 @pytest.fixture
 def hard_env(env):
-    env.reset("hard_dependency_migration")
+    env.reset(task_id="hard_dependency_migration")
     return env
 
 
