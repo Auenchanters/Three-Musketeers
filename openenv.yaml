@@ -1,0 +1,41 @@
+name: CloudFinOpsEnv
+version: "1.0.0"
+description: >
+  An environment where LLM agents optimize cloud infrastructure costs
+  by identifying orphaned resources, right-sizing over-provisioned instances,
+  and safely pruning waste — without breaking production systems.
+author: Three Musketeers
+tags:
+  - openenv
+  - finops
+  - cloud-optimization
+  - cost-management
+
+observation_model: models.observation.Observation
+action_model: models.action.Action
+reward_model: models.reward.Reward
+
+tasks:
+  - id: easy_orphan_cleanup
+    name: "Orphan Cleanup"
+    difficulty: easy
+    description: "Delete orphaned and detached resources costing money with no purpose."
+    max_steps: 15
+
+  - id: medium_rightsize
+    name: "Right-Size & Prune"
+    difficulty: medium
+    description: "Right-size over-provisioned instances and clean up waste while respecting environment tags."
+    max_steps: 25
+
+  - id: hard_dependency_migration
+    name: "Dependency-Aware Migration"
+    difficulty: hard
+    description: "Optimize costs in a complex environment with dependencies, maintenance windows, and cascading effects."
+    max_steps: 40
+
+endpoints:
+  reset: /reset
+  step: /step
+  state: /state
+  health: /health

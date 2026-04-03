@@ -1,0 +1,378 @@
+{
+  "_comment": "Medium Task: Right-Size & Prune — 20 resources. Requires querying metrics before acting.",
+  "task_id": "medium_rightsize",
+  "task_difficulty": "medium",
+  "task_description": "Your cloud account is over-budget at $4,847/month. Your target is to reduce costs to under $3,800/month by right-sizing over-provisioned instances and cleaning up waste. Be careful: some resources look idle but are tagged 'staging' (safe to modify) while others are 'production' (do NOT touch). Always check metrics and dependencies before acting.",
+  "max_steps": 25,
+  "budget_target": 3800.00,
+  "maintenance_window": null,
+
+  "resources": [
+    {
+      "_role": "WASTE: orphaned volume",
+      "resource_id": "vol-0b2c3d4e5f6a70001",
+      "resource_type": "ebs_volume",
+      "name": "old-ml-training-data-v2",
+      "status": "detached",
+      "cost_per_hour": 0.014,
+      "tags": {"env": "dev", "team": "ml", "purpose": "training-data", "created_by": "sagemaker"},
+      "created_days_ago": 195,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 195
+      }
+    },
+    {
+      "_role": "WASTE: orphaned volume",
+      "resource_id": "vol-0b2c3d4e5f6a70002",
+      "resource_type": "ebs_volume",
+      "name": "ci-artifacts-temp-store",
+      "status": "detached",
+      "cost_per_hour": 0.009,
+      "tags": {"env": "dev", "team": "devops", "purpose": "ci-artifacts"},
+      "created_days_ago": 260,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 260
+      }
+    },
+    {
+      "_role": "WASTE: orphaned volume",
+      "resource_id": "vol-0b2c3d4e5f6a70003",
+      "resource_type": "ebs_volume",
+      "name": "staging-db-snapshot-deprecated",
+      "status": "detached",
+      "cost_per_hour": 0.019,
+      "tags": {"env": "staging", "team": "backend", "purpose": "db-snapshot"},
+      "created_days_ago": 175,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 175
+      }
+    },
+    {
+      "_role": "RIGHTSIZE: massively over-provisioned, CPU < 5%",
+      "resource_id": "i-0b2c3d4e5f6a70004",
+      "resource_type": "ec2_instance",
+      "name": "staging-internal-tools-server",
+      "status": "running",
+      "cost_per_hour": 0.1920,
+      "tags": {"env": "staging", "team": "internal-tools", "instance_type": "m5.xlarge", "service": "admin-dashboard"},
+      "created_days_ago": 310,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 2.1, "cpu_peak_7d": 8.5, "memory_avg_7d": 11.3, "memory_peak_7d": 18.7,
+        "network_in_gb_7d": 0.8, "network_out_gb_7d": 0.3, "disk_iops_avg_7d": 45.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "RIGHTSIZE: massively over-provisioned, CPU < 3%",
+      "resource_id": "i-0b2c3d4e5f6a70005",
+      "resource_type": "ec2_instance",
+      "name": "staging-monitoring-collector",
+      "status": "running",
+      "cost_per_hour": 0.1664,
+      "tags": {"env": "staging", "team": "devops", "instance_type": "t3.xlarge", "service": "log-collector"},
+      "created_days_ago": 220,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 1.8, "cpu_peak_7d": 6.2, "memory_avg_7d": 8.9, "memory_peak_7d": 14.1,
+        "network_in_gb_7d": 2.1, "network_out_gb_7d": 0.5, "disk_iops_avg_7d": 120.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "RIGHTSIZE: oversized RDS at 10% capacity",
+      "resource_id": "rds-0b2c3d4e5f6a70006",
+      "resource_type": "rds_instance",
+      "name": "staging-analytics-db",
+      "status": "running",
+      "cost_per_hour": 1.0000,
+      "tags": {"env": "staging", "team": "data-engineering", "instance_type": "db.r5.2xlarge", "engine": "postgresql", "service": "analytics"},
+      "created_days_ago": 400,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 4.5, "cpu_peak_7d": 12.3, "memory_avg_7d": 9.8, "memory_peak_7d": 15.6,
+        "network_in_gb_7d": 3.2, "network_out_gb_7d": 8.1, "disk_iops_avg_7d": 280.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "WASTE: idle NAT gateway, zero traffic 30+ days",
+      "resource_id": "nat-0b2c3d4e5f6a70007",
+      "resource_type": "nat_gateway",
+      "name": "nat-dev-vpc-us-east-1a",
+      "status": "idle",
+      "cost_per_hour": 0.045,
+      "tags": {"env": "dev", "team": "platform", "vpc": "vpc-dev-legacy"},
+      "created_days_ago": 365,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 45
+      }
+    },
+    {
+      "_role": "WASTE: idle NAT gateway, zero traffic 30+ days",
+      "resource_id": "nat-0b2c3d4e5f6a70008",
+      "resource_type": "nat_gateway",
+      "name": "nat-test-vpc-us-east-1b",
+      "status": "idle",
+      "cost_per_hour": 0.045,
+      "tags": {"env": "test", "team": "platform", "vpc": "vpc-test-deprecated"},
+      "created_days_ago": 290,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 38
+      }
+    },
+    {
+      "_role": "WASTE: ALB with zero targets",
+      "resource_id": "alb-0b2c3d4e5f6a70009",
+      "resource_type": "load_balancer",
+      "name": "alb-staging-legacy-frontend",
+      "status": "idle",
+      "cost_per_hour": 0.0225,
+      "tags": {"env": "staging", "team": "frontend", "note": "old SPA, migrated to CloudFront"},
+      "created_days_ago": 180,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 60
+      }
+    },
+
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "i-0b2c3d4e5f6a70010",
+      "resource_type": "ec2_instance",
+      "name": "prod-api-gateway-west",
+      "status": "running",
+      "cost_per_hour": 0.1920,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "service": "api-gateway", "region_role": "primary"},
+      "created_days_ago": 60,
+      "attached_to": null,
+      "dependencies": ["rds-0b2c3d4e5f6a70014"],
+      "metrics": {
+        "cpu_avg_7d": 58.3, "cpu_peak_7d": 87.2, "memory_avg_7d": 65.1, "memory_peak_7d": 79.8,
+        "network_in_gb_7d": 320.5, "network_out_gb_7d": 285.3, "disk_iops_avg_7d": 4100.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "i-0b2c3d4e5f6a70011",
+      "resource_type": "ec2_instance",
+      "name": "prod-api-gateway-east",
+      "status": "running",
+      "cost_per_hour": 0.1920,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "service": "api-gateway", "region_role": "secondary"},
+      "created_days_ago": 60,
+      "attached_to": null,
+      "dependencies": ["rds-0b2c3d4e5f6a70014"],
+      "metrics": {
+        "cpu_avg_7d": 52.7, "cpu_peak_7d": 83.1, "memory_avg_7d": 60.4, "memory_peak_7d": 75.2,
+        "network_in_gb_7d": 295.8, "network_out_gb_7d": 260.1, "disk_iops_avg_7d": 3800.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "i-0b2c3d4e5f6a70012",
+      "resource_type": "ec2_instance",
+      "name": "prod-worker-payment-processor",
+      "status": "running",
+      "cost_per_hour": 0.3840,
+      "tags": {"env": "production", "team": "payments", "critical": "true", "service": "payment-queue", "pci": "true"},
+      "created_days_ago": 150,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 41.5, "cpu_peak_7d": 78.9, "memory_avg_7d": 55.0, "memory_peak_7d": 71.3,
+        "network_in_gb_7d": 45.2, "network_out_gb_7d": 52.8, "disk_iops_avg_7d": 2200.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch — looks idle-ish but is critical batch job",
+      "resource_id": "i-0b2c3d4e5f6a70013",
+      "resource_type": "ec2_instance",
+      "name": "prod-nightly-etl-runner",
+      "status": "running",
+      "cost_per_hour": 0.3840,
+      "tags": {"env": "production", "team": "data-engineering", "critical": "true", "service": "etl-pipeline", "schedule": "nightly-2am"},
+      "created_days_ago": 200,
+      "attached_to": null,
+      "dependencies": ["rds-0b2c3d4e5f6a70014"],
+      "metrics": {
+        "cpu_avg_7d": 12.3, "cpu_peak_7d": 95.1, "memory_avg_7d": 22.5, "memory_peak_7d": 88.7,
+        "network_in_gb_7d": 180.0, "network_out_gb_7d": 95.0, "disk_iops_avg_7d": 7500.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "rds-0b2c3d4e5f6a70014",
+      "resource_type": "rds_instance",
+      "name": "prod-db-primary-mysql",
+      "status": "running",
+      "cost_per_hour": 1.0000,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "engine": "mysql", "instance_type": "db.r5.2xlarge", "multi_az": "true"},
+      "created_days_ago": 365,
+      "attached_to": null,
+      "dependencies": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011", "i-0b2c3d4e5f6a70013"],
+      "metrics": {
+        "cpu_avg_7d": 35.2, "cpu_peak_7d": 68.5, "memory_avg_7d": 62.0, "memory_peak_7d": 78.1,
+        "network_in_gb_7d": 120.0, "network_out_gb_7d": 95.0, "disk_iops_avg_7d": 12000.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "i-0b2c3d4e5f6a70015",
+      "resource_type": "ec2_instance",
+      "name": "prod-cache-redis-primary",
+      "status": "running",
+      "cost_per_hour": 0.0960,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "service": "redis-cache"},
+      "created_days_ago": 120,
+      "attached_to": null,
+      "dependencies": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011"],
+      "metrics": {
+        "cpu_avg_7d": 28.5, "cpu_peak_7d": 55.2, "memory_avg_7d": 72.0, "memory_peak_7d": 85.3,
+        "network_in_gb_7d": 450.0, "network_out_gb_7d": 430.0, "disk_iops_avg_7d": 150.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "nat-0b2c3d4e5f6a70016",
+      "resource_type": "nat_gateway",
+      "name": "nat-prod-vpc-us-east-1a",
+      "status": "running",
+      "cost_per_hour": 0.045,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "vpc": "vpc-prod-main"},
+      "created_days_ago": 365,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 850.0, "network_out_gb_7d": 620.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "alb-0b2c3d4e5f6a70017",
+      "resource_type": "load_balancer",
+      "name": "alb-prod-api-public",
+      "status": "running",
+      "cost_per_hour": 0.0225,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "service": "public-api-lb"},
+      "created_days_ago": 60,
+      "attached_to": null,
+      "dependencies": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011"],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 580.0, "network_out_gb_7d": 540.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "vol-0b2c3d4e5f6a70018",
+      "resource_type": "ebs_volume",
+      "name": "prod-payment-data-encrypted",
+      "status": "running",
+      "cost_per_hour": 0.034,
+      "tags": {"env": "production", "team": "payments", "critical": "true", "encrypted": "true", "pci": "true"},
+      "created_days_ago": 150,
+      "attached_to": "i-0b2c3d4e5f6a70012",
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0, "disk_iops_avg_7d": 2200.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch",
+      "resource_id": "eip-0b2c3d4e5f6a70019",
+      "resource_type": "elastic_ip",
+      "name": "eip-prod-api-static",
+      "status": "running",
+      "cost_per_hour": 0.005,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "note": "static IP for DNS A record"},
+      "created_days_ago": 365,
+      "attached_to": "alb-0b2c3d4e5f6a70017",
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0, "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 580.0, "network_out_gb_7d": 540.0, "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "_role": "PRODUCTION: must NOT touch — tricky: low avg CPU but critical monitoring",
+      "resource_id": "i-0b2c3d4e5f6a70020",
+      "resource_type": "ec2_instance",
+      "name": "prod-monitoring-prometheus",
+      "status": "running",
+      "cost_per_hour": 0.0960,
+      "tags": {"env": "production", "team": "devops", "critical": "true", "service": "monitoring", "alert_target": "pagerduty"},
+      "created_days_ago": 300,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 15.2, "cpu_peak_7d": 42.8, "memory_avg_7d": 68.5, "memory_peak_7d": 82.1,
+        "network_in_gb_7d": 95.0, "network_out_gb_7d": 12.0, "disk_iops_avg_7d": 1800.0, "last_accessed_days_ago": 0
+      }
+    }
+  ],
+
+  "critical_resources": [
+    "i-0b2c3d4e5f6a70010",
+    "i-0b2c3d4e5f6a70011",
+    "i-0b2c3d4e5f6a70012",
+    "i-0b2c3d4e5f6a70013",
+    "rds-0b2c3d4e5f6a70014",
+    "i-0b2c3d4e5f6a70015",
+    "nat-0b2c3d4e5f6a70016",
+    "alb-0b2c3d4e5f6a70017",
+    "vol-0b2c3d4e5f6a70018",
+    "eip-0b2c3d4e5f6a70019",
+    "i-0b2c3d4e5f6a70020"
+  ],
+
+  "dependency_graph": {
+    "rds-0b2c3d4e5f6a70014": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011", "i-0b2c3d4e5f6a70013"],
+    "i-0b2c3d4e5f6a70015": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011"],
+    "alb-0b2c3d4e5f6a70017": ["i-0b2c3d4e5f6a70010", "i-0b2c3d4e5f6a70011"],
+    "vol-0b2c3d4e5f6a70018": ["i-0b2c3d4e5f6a70012"]
+  },
+
+  "wasteful_resources": [
+    "vol-0b2c3d4e5f6a70001",
+    "vol-0b2c3d4e5f6a70002",
+    "vol-0b2c3d4e5f6a70003",
+    "nat-0b2c3d4e5f6a70007",
+    "nat-0b2c3d4e5f6a70008",
+    "alb-0b2c3d4e5f6a70009"
+  ],
+
+  "rightsize_targets": {
+    "i-0b2c3d4e5f6a70004": {"current": "m5.xlarge", "optimal": "t3.small",   "current_cost_hr": 0.1920, "optimal_cost_hr": 0.0208},
+    "i-0b2c3d4e5f6a70005": {"current": "t3.xlarge", "optimal": "t3.small",   "current_cost_hr": 0.1664, "optimal_cost_hr": 0.0208},
+    "rds-0b2c3d4e5f6a70006": {"current": "db.r5.2xlarge", "optimal": "db.t3.medium", "current_cost_hr": 1.0000, "optimal_cost_hr": 0.0680}
+  },
+
+  "_cost_analysis": {
+    "total_hourly": 6.6404,
+    "total_monthly": 4847.49,
+    "waste_delete_savings_monthly": 113.15,
+    "rightsize_savings_monthly": 924.69,
+    "optimal_savings_monthly": 1037.84,
+    "post_optimization_monthly": 3809.65
+  }
+}

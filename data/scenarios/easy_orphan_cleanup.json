@@ -1,0 +1,215 @@
+{
+  "_comment": "Easy Task: Orphan Cleanup — 10 resources, 6 are waste, 4 are production (must NOT touch)",
+  "task_id": "easy_orphan_cleanup",
+  "task_difficulty": "easy",
+  "task_description": "Your cloud account has accumulated orphaned resources that are costing money but serving no purpose. Identify and safely remove all wasteful resources without impacting any production systems. Look for detached volumes, unused Elastic IPs, and long-stopped instances.",
+  "max_steps": 15,
+  "budget_target": null,
+  "maintenance_window": null,
+
+  "resources": [
+    {
+      "resource_id": "vol-0a1b2c3d4e5f60001",
+      "resource_type": "ebs_volume",
+      "name": "old-backup-dev-snapshot-47",
+      "status": "detached",
+      "cost_per_hour": 0.011,
+      "tags": {"env": "dev", "team": "backend", "purpose": "backup", "created_by": "jenkins-ci"},
+      "created_days_ago": 210,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 210
+      }
+    },
+    {
+      "resource_id": "vol-0a1b2c3d4e5f60002",
+      "resource_type": "ebs_volume",
+      "name": "test-data-volume-old",
+      "status": "detached",
+      "cost_per_hour": 0.016,
+      "tags": {"env": "test", "team": "data-engineering", "purpose": "testing"},
+      "created_days_ago": 145,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 145
+      }
+    },
+    {
+      "resource_id": "vol-0a1b2c3d4e5f60003",
+      "resource_type": "ebs_volume",
+      "name": "staging-logs-detached-vol",
+      "status": "detached",
+      "cost_per_hour": 0.008,
+      "tags": {"env": "staging", "team": "platform", "purpose": "logs"},
+      "created_days_ago": 88,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 88
+      }
+    },
+    {
+      "resource_id": "eip-0a1b2c3d4e5f60004",
+      "resource_type": "elastic_ip",
+      "name": "unused-eip-old-frontend",
+      "status": "detached",
+      "cost_per_hour": 0.005,
+      "tags": {"env": "dev", "team": "frontend", "note": "was attached to old dev server"},
+      "created_days_ago": 320,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 320
+      }
+    },
+    {
+      "resource_id": "eip-0a1b2c3d4e5f60005",
+      "resource_type": "elastic_ip",
+      "name": "unused-eip-legacy-api",
+      "status": "detached",
+      "cost_per_hour": 0.005,
+      "tags": {"env": "dev", "team": "backend", "note": "legacy API migration leftover"},
+      "created_days_ago": 275,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 275
+      }
+    },
+    {
+      "resource_id": "i-0a1b2c3d4e5f60006",
+      "resource_type": "ec2_instance",
+      "name": "dev-experiment-box-abandoned",
+      "status": "stopped",
+      "cost_per_hour": 0.0416,
+      "tags": {"env": "dev", "team": "ml", "owner": "intern-2024", "purpose": "experiment"},
+      "created_days_ago": 120,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 0.0, "last_accessed_days_ago": 90
+      }
+    },
+
+    {
+      "resource_id": "i-0a1b2c3d4e5f60007",
+      "resource_type": "ec2_instance",
+      "name": "prod-api-primary-1",
+      "status": "running",
+      "cost_per_hour": 0.1920,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "service": "core-api"},
+      "created_days_ago": 45,
+      "attached_to": null,
+      "dependencies": ["vol-0a1b2c3d4e5f60010"],
+      "metrics": {
+        "cpu_avg_7d": 67.3, "cpu_peak_7d": 89.1,
+        "memory_avg_7d": 72.5, "memory_peak_7d": 85.2,
+        "network_in_gb_7d": 142.5, "network_out_gb_7d": 98.3,
+        "disk_iops_avg_7d": 3200.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "resource_id": "i-0a1b2c3d4e5f60008",
+      "resource_type": "ec2_instance",
+      "name": "prod-worker-batch-processor",
+      "status": "running",
+      "cost_per_hour": 0.3840,
+      "tags": {"env": "production", "team": "data-engineering", "critical": "true", "service": "batch-etl"},
+      "created_days_ago": 180,
+      "attached_to": null,
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 45.8, "cpu_peak_7d": 92.4,
+        "memory_avg_7d": 61.2, "memory_peak_7d": 78.9,
+        "network_in_gb_7d": 85.1, "network_out_gb_7d": 210.7,
+        "disk_iops_avg_7d": 5500.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "resource_id": "rds-0a1b2c3d4e5f60009",
+      "resource_type": "rds_instance",
+      "name": "prod-db-primary-postgres",
+      "status": "running",
+      "cost_per_hour": 0.5000,
+      "tags": {"env": "production", "team": "platform", "critical": "true", "engine": "postgresql", "service": "core-db"},
+      "created_days_ago": 365,
+      "attached_to": null,
+      "dependencies": ["i-0a1b2c3d4e5f60007"],
+      "metrics": {
+        "cpu_avg_7d": 38.2, "cpu_peak_7d": 71.5,
+        "memory_avg_7d": 55.0, "memory_peak_7d": 68.3,
+        "network_in_gb_7d": 52.0, "network_out_gb_7d": 45.8,
+        "disk_iops_avg_7d": 8200.0, "last_accessed_days_ago": 0
+      }
+    },
+    {
+      "resource_id": "vol-0a1b2c3d4e5f60010",
+      "resource_type": "ebs_volume",
+      "name": "prod-api-data-vol",
+      "status": "running",
+      "cost_per_hour": 0.022,
+      "tags": {"env": "production", "team": "platform", "critical": "true"},
+      "created_days_ago": 45,
+      "attached_to": "i-0a1b2c3d4e5f60007",
+      "dependencies": [],
+      "metrics": {
+        "cpu_avg_7d": 0.0, "cpu_peak_7d": 0.0,
+        "memory_avg_7d": 0.0, "memory_peak_7d": 0.0,
+        "network_in_gb_7d": 0.0, "network_out_gb_7d": 0.0,
+        "disk_iops_avg_7d": 3200.0, "last_accessed_days_ago": 0
+      }
+    }
+  ],
+
+  "critical_resources": [
+    "i-0a1b2c3d4e5f60007",
+    "i-0a1b2c3d4e5f60008",
+    "rds-0a1b2c3d4e5f60009",
+    "vol-0a1b2c3d4e5f60010"
+  ],
+
+  "dependency_graph": {
+    "i-0a1b2c3d4e5f60007": ["vol-0a1b2c3d4e5f60010"],
+    "rds-0a1b2c3d4e5f60009": ["i-0a1b2c3d4e5f60007"],
+    "vol-0a1b2c3d4e5f60010": []
+  },
+
+  "wasteful_resources": [
+    "vol-0a1b2c3d4e5f60001",
+    "vol-0a1b2c3d4e5f60002",
+    "vol-0a1b2c3d4e5f60003",
+    "eip-0a1b2c3d4e5f60004",
+    "eip-0a1b2c3d4e5f60005",
+    "i-0a1b2c3d4e5f60006"
+  ],
+
+  "_cost_analysis": {
+    "wasteful_hourly": 0.0866,
+    "wasteful_monthly": 63.22,
+    "production_hourly": 1.098,
+    "production_monthly": 801.54,
+    "total_hourly": 1.1846,
+    "total_monthly": 864.76,
+    "optimal_savings_monthly": 63.22
+  }
+}

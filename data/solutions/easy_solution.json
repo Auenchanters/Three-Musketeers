@@ -1,0 +1,18 @@
+{
+  "_comment": "Oracle solution for Easy task: delete all 6 wasteful resources",
+  "task_id": "easy_orphan_cleanup",
+  "optimal_savings_monthly": 63.22,
+  "optimal_action_sequence": [
+    {"action_type": "query_metrics", "resource_id": "vol-0a1b2c3d4e5f60001", "reason": "Check if volume is truly unused"},
+    {"action_type": "delete", "resource_id": "vol-0a1b2c3d4e5f60001", "reason": "Detached EBS volume, no access in 210 days, dev environment"},
+    {"action_type": "query_metrics", "resource_id": "vol-0a1b2c3d4e5f60002", "reason": "Check if volume is truly unused"},
+    {"action_type": "delete", "resource_id": "vol-0a1b2c3d4e5f60002", "reason": "Detached EBS volume, no access in 145 days, test environment"},
+    {"action_type": "query_metrics", "resource_id": "vol-0a1b2c3d4e5f60003", "reason": "Check if volume is truly unused"},
+    {"action_type": "delete", "resource_id": "vol-0a1b2c3d4e5f60003", "reason": "Detached EBS volume, no access in 88 days, staging logs"},
+    {"action_type": "delete", "resource_id": "eip-0a1b2c3d4e5f60004", "reason": "Unused Elastic IP, not attached to anything, 320 days old"},
+    {"action_type": "delete", "resource_id": "eip-0a1b2c3d4e5f60005", "reason": "Unused Elastic IP, legacy API migration leftover"},
+    {"action_type": "query_metrics", "resource_id": "i-0a1b2c3d4e5f60006", "reason": "Check stopped instance usage"},
+    {"action_type": "delete", "resource_id": "i-0a1b2c3d4e5f60006", "reason": "Stopped EC2 instance, owned by former intern, no access in 90 days"},
+    {"action_type": "commit_changes", "reason": "All orphaned resources cleaned up"}
+  ]
+}

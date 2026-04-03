@@ -1,0 +1,56 @@
+{
+  "_comment": "Real AWS on-demand pricing for us-east-1 (N. Virginia). Source: AWS public pricing pages, early 2026.",
+  "_region": "us-east-1",
+  "ec2_instances": {
+    "t3.micro":    {"vcpu": 2, "memory_gb": 1,   "cost_per_hour": 0.0104},
+    "t3.small":    {"vcpu": 2, "memory_gb": 2,   "cost_per_hour": 0.0208},
+    "t3.medium":   {"vcpu": 2, "memory_gb": 4,   "cost_per_hour": 0.0416},
+    "t3.large":    {"vcpu": 2, "memory_gb": 8,   "cost_per_hour": 0.0832},
+    "t3.xlarge":   {"vcpu": 4, "memory_gb": 16,  "cost_per_hour": 0.1664},
+    "m5.large":    {"vcpu": 2, "memory_gb": 8,   "cost_per_hour": 0.0960},
+    "m5.xlarge":   {"vcpu": 4, "memory_gb": 16,  "cost_per_hour": 0.1920},
+    "m5.2xlarge":  {"vcpu": 8, "memory_gb": 32,  "cost_per_hour": 0.3840},
+    "r5.large":    {"vcpu": 2, "memory_gb": 16,  "cost_per_hour": 0.1260},
+    "r5.xlarge":   {"vcpu": 4, "memory_gb": 32,  "cost_per_hour": 0.2520},
+    "r5.2xlarge":  {"vcpu": 8, "memory_gb": 64,  "cost_per_hour": 0.5040},
+    "c5.large":    {"vcpu": 2, "memory_gb": 4,   "cost_per_hour": 0.0850},
+    "c5.xlarge":   {"vcpu": 4, "memory_gb": 8,   "cost_per_hour": 0.1700}
+  },
+  "rds_instances": {
+    "_comment": "MySQL/PostgreSQL Single-AZ pricing",
+    "db.t3.micro":    {"vcpu": 2, "memory_gb": 1,   "cost_per_hour": 0.0170},
+    "db.t3.small":    {"vcpu": 2, "memory_gb": 2,   "cost_per_hour": 0.0340},
+    "db.t3.medium":   {"vcpu": 2, "memory_gb": 4,   "cost_per_hour": 0.0680},
+    "db.r5.large":    {"vcpu": 2, "memory_gb": 16,  "cost_per_hour": 0.2500},
+    "db.r5.xlarge":   {"vcpu": 4, "memory_gb": 32,  "cost_per_hour": 0.5000},
+    "db.r5.2xlarge":  {"vcpu": 8, "memory_gb": 64,  "cost_per_hour": 1.0000}
+  },
+  "ebs_volumes": {
+    "_comment": "Cost per GB per month, converted to per-hour for consistency",
+    "gp3": {"cost_per_gb_month": 0.08, "cost_per_gb_hour": 0.00011},
+    "io2": {"cost_per_gb_month": 0.125, "cost_per_gb_hour": 0.00017},
+    "st1": {"cost_per_gb_month": 0.045, "cost_per_gb_hour": 0.00006},
+    "sc1": {"cost_per_gb_month": 0.015, "cost_per_gb_hour": 0.00002}
+  },
+  "other_services": {
+    "elastic_ip_unused":  {"cost_per_hour": 0.005, "note": "Charged for all public IPv4 since Feb 2024"},
+    "nat_gateway":        {"cost_per_hour": 0.045, "note": "Plus $0.045/GB data processed"},
+    "alb":                {"cost_per_hour": 0.0225, "note": "Plus $0.008 per LCU-hour"}
+  },
+  "valid_resize_paths": {
+    "_comment": "Valid downsize paths for the environment. Agent can only resize along these paths.",
+    "t3.xlarge":   ["t3.large", "t3.medium", "t3.small", "t3.micro"],
+    "t3.large":    ["t3.medium", "t3.small", "t3.micro"],
+    "t3.medium":   ["t3.small", "t3.micro"],
+    "t3.small":    ["t3.micro"],
+    "m5.2xlarge":  ["m5.xlarge", "m5.large", "t3.xlarge", "t3.large", "t3.medium", "t3.small"],
+    "m5.xlarge":   ["m5.large", "t3.large", "t3.medium", "t3.small"],
+    "r5.2xlarge":  ["r5.xlarge", "r5.large"],
+    "r5.xlarge":   ["r5.large"],
+    "c5.xlarge":   ["c5.large"],
+    "db.r5.2xlarge": ["db.r5.xlarge", "db.r5.large", "db.t3.medium"],
+    "db.r5.xlarge":  ["db.r5.large", "db.t3.medium"],
+    "db.r5.large":   ["db.t3.medium", "db.t3.small"],
+    "db.t3.medium":  ["db.t3.small", "db.t3.micro"]
+  }
+}

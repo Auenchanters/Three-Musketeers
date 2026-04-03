@@ -1,0 +1,31 @@
+{
+  "_comment": "Oracle solution for Hard task: delete waste + rightsize + handle dependencies correctly",
+  "task_id": "hard_dependency_migration",
+  "optimal_savings_monthly": 2513.54,
+  "optimal_action_sequence": [
+    {"action_type": "delete", "resource_id": "vol-0c3d4e5f6a7b80001", "reason": "Detached, 300 days old, dev ML checkpoint"},
+    {"action_type": "delete", "resource_id": "vol-0c3d4e5f6a7b80002", "reason": "Detached, 245 days old, test integration data"},
+    {"action_type": "delete", "resource_id": "vol-0c3d4e5f6a7b80003", "reason": "Detached, 180 days old, staging cache warmup"},
+    {"action_type": "delete", "resource_id": "eip-0c3d4e5f6a7b80004", "reason": "Unused EIP, old bastion host removed 400 days ago"},
+    {"action_type": "delete", "resource_id": "nat-0c3d4e5f6a7b80005", "reason": "Idle NAT in deprecated sandbox VPC"},
+    {"action_type": "delete", "resource_id": "alb-0c3d4e5f6a7b80006", "reason": "Idle ALB, replaced by Istio"},
+    {"action_type": "delete", "resource_id": "i-0c3d4e5f6a7b80007", "reason": "Stopped 120 days, abandoned researcher experiment"},
+    {"action_type": "query_metrics", "resource_id": "i-0c3d4e5f6a7b80008", "reason": "Check demo server before resizing"},
+    {"action_type": "resize", "resource_id": "i-0c3d4e5f6a7b80008", "new_size": "t3.small", "reason": "CPU avg 3.2% — maintenance_eligible, safe to resize"},
+    {"action_type": "query_metrics", "resource_id": "i-0c3d4e5f6a7b80009", "reason": "Check background workers before resizing"},
+    {"action_type": "resize", "resource_id": "i-0c3d4e5f6a7b80009", "new_size": "t3.small", "reason": "CPU avg 2.8% — maintenance_eligible, safe to resize"},
+    {"action_type": "query_metrics", "resource_id": "rds-0c3d4e5f6a7b80010", "reason": "Check staging reporting DB"},
+    {"action_type": "resize", "resource_id": "rds-0c3d4e5f6a7b80010", "new_size": "db.t3.medium", "reason": "CPU avg 5.1% — maintenance_eligible, safe to resize"},
+    {"action_type": "delete", "resource_id": "nat-0c3d4e5f6a7b80011", "reason": "Near-zero traffic staging NAT, maintenance_eligible"},
+    {"action_type": "check_deps", "resource_id": "i-0c3d4e5f6a7b80017", "reason": "Check circular dependency before resizing"},
+    {"action_type": "check_deps", "resource_id": "i-0c3d4e5f6a7b80018", "reason": "Check peer circular dependency"},
+    {"action_type": "resize", "resource_id": "i-0c3d4e5f6a7b80017", "new_size": "t3.small", "reason": "Circular dep pair — safe to resize both, CPU avg 5.5%"},
+    {"action_type": "resize", "resource_id": "i-0c3d4e5f6a7b80018", "new_size": "t3.small", "reason": "Circular dep pair — safe to resize both, CPU avg 4.8%"},
+    {"action_type": "check_deps", "resource_id": "rds-0c3d4e5f6a7b80015", "reason": "Check primary/replica dependency before resizing"},
+    {"action_type": "resize", "resource_id": "rds-0c3d4e5f6a7b80015", "new_size": "db.r5.large", "reason": "CPU avg 22.5%, peak 45.8% — can safely downsize. Must resize replica too"},
+    {"action_type": "resize", "resource_id": "rds-0c3d4e5f6a7b80016", "new_size": "db.r5.large", "reason": "Replica must match primary size after resize"},
+    {"action_type": "query_metrics", "resource_id": "s3-0c3d4e5f6a7b80019", "reason": "Check S3 bucket access patterns"},
+    {"action_type": "resize", "resource_id": "s3-0c3d4e5f6a7b80019", "new_size": "GLACIER", "reason": "Rarely accessed archive data, lifecycle policy change saves money"},
+    {"action_type": "commit_changes", "reason": "All optimizations complete: waste deleted, oversized resized, dependencies handled"}
+  ]
+}

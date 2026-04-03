@@ -1,0 +1,20 @@
+{
+  "_comment": "Oracle solution for Medium task: delete waste + rightsize over-provisioned",
+  "task_id": "medium_rightsize",
+  "optimal_savings_monthly": 1037.84,
+  "optimal_action_sequence": [
+    {"action_type": "delete", "resource_id": "vol-0b2c3d4e5f6a70001", "reason": "Detached EBS volume, ML training data from 195 days ago"},
+    {"action_type": "delete", "resource_id": "vol-0b2c3d4e5f6a70002", "reason": "Detached EBS volume, CI artifacts from 260 days ago"},
+    {"action_type": "delete", "resource_id": "vol-0b2c3d4e5f6a70003", "reason": "Detached EBS volume, deprecated DB snapshot"},
+    {"action_type": "delete", "resource_id": "nat-0b2c3d4e5f6a70007", "reason": "Idle NAT gateway in legacy dev VPC, zero traffic 45+ days"},
+    {"action_type": "delete", "resource_id": "nat-0b2c3d4e5f6a70008", "reason": "Idle NAT gateway in deprecated test VPC"},
+    {"action_type": "delete", "resource_id": "alb-0b2c3d4e5f6a70009", "reason": "ALB with zero targets, old frontend migrated to CloudFront"},
+    {"action_type": "query_metrics", "resource_id": "i-0b2c3d4e5f6a70004", "reason": "Check staging server utilization before resizing"},
+    {"action_type": "resize", "resource_id": "i-0b2c3d4e5f6a70004", "new_size": "t3.small", "reason": "CPU avg 2.1%, peak 8.5% — m5.xlarge is massive overkill"},
+    {"action_type": "query_metrics", "resource_id": "i-0b2c3d4e5f6a70005", "reason": "Check monitoring collector utilization"},
+    {"action_type": "resize", "resource_id": "i-0b2c3d4e5f6a70005", "new_size": "t3.small", "reason": "CPU avg 1.8%, peak 6.2% — t3.xlarge is massive overkill"},
+    {"action_type": "query_metrics", "resource_id": "rds-0b2c3d4e5f6a70006", "reason": "Check analytics DB utilization before resizing"},
+    {"action_type": "resize", "resource_id": "rds-0b2c3d4e5f6a70006", "new_size": "db.t3.medium", "reason": "CPU avg 4.5%, memory avg 9.8% — db.r5.2xlarge at 10% capacity"},
+    {"action_type": "commit_changes", "reason": "Waste deleted and over-provisioned resources right-sized"}
+  ]
+}
