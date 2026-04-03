@@ -1,3 +1,14 @@
+---
+title: CloudFinOpsEnv
+emoji: 🌩️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+tags:
+  - openenv
+---
+
 # CloudFinOpsEnv 🌩️💰
 
 **An OpenEnv environment where LLM agents learn to optimize cloud infrastructure costs by identifying waste, right-sizing resources, and safely pruning orphaned assets — without breaking production.**
