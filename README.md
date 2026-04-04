@@ -1,6 +1,6 @@
 ---
 title: CloudFinOpsEnv
-emoji: cloud
+emoji: 💰
 colorFrom: blue
 colorTo: green
 sdk: docker
