@@ -6,10 +6,20 @@ Emits [START], [STEP], [END] structured logs.
 Calls the environment server via HTTP.
 
 Environment Variables:
-    API_BASE_URL  — Base URL for the LLM API
-    HF_TOKEN / OPENAI_API_KEY  — API key
+    API_BASE_URL  — Base URL for the LLM API (any OpenAI-compatible endpoint)
+    HF_TOKEN / OPENAI_API_KEY  — API key for the LLM provider
     MODEL_NAME    — Model to use (default: meta-llama/Meta-Llama-3-8B-Instruct)
     ENV_URL       — CloudFinOpsEnv server URL (default: http://localhost:7860)
+
+Supported Providers:
+    # HuggingFace Inference (default):
+    API_BASE_URL=https://router.huggingface.co/v1  HF_TOKEN=hf_xxx
+
+    # OpenRouter (alternative — supports many models):
+    API_BASE_URL=https://openrouter.ai/api/v1  OPENAI_API_KEY=sk-or-v1-xxx
+
+    # Any OpenAI-compatible API:
+    API_BASE_URL=https://your-api.com/v1  OPENAI_API_KEY=your-key
 """
 
 import os
