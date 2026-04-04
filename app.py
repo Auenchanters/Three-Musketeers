@@ -15,3 +15,13 @@ app = create_app(
     action_cls=Action,
     observation_cls=Observation,
 )
+
+
+@app.get("/")
+async def root():
+    return {
+        "name": "CloudFinOpsEnv",
+        "status": "running",
+        "docs": "/docs",
+        "endpoints": ["/health", "/reset", "/step", "/state", "/schema", "/ws"],
+    }
