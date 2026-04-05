@@ -1,35 +1,21 @@
-"""
-CloudFinOpsEnv — Action Models
-
-Defines the 8 actions an agent can take:
-- QUERY_METRICS: inspect resource usage (investigation)
-- DELETE: permanently remove a resource
-- STOP: stop a running instance (reversible)
-- RESIZE: change instance/db tier
-- DETACH: detach a volume from instance
-- COMMIT_CHANGES: end episode and finalize savings
-- LIST_RESOURCES: refresh the resource list
-- CHECK_DEPS: check what depends on a resource
-"""
+"""Action models for the CloudFinOpsEnv agent."""
 
 from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
+from openenv.core.env_server.types import Action as BaseAction
 
 
 class ActionType(str, Enum):
     """The 8 actions available to the agent."""
-    QUERY_METRICS = "query_metrics"       # Inspect a resource's 7-day usage
-    DELETE = "delete"                      # Permanently remove a resource
-    STOP = "stop"                          # Stop a running instance (can be restarted)
-    RESIZE = "resize"                      # Change instance/db tier (e.g., t3.large → t3.small)
-    DETACH = "detach"                      # Detach a volume from an instance
-    COMMIT_CHANGES = "commit_changes"      # End episode, finalize all savings
-    LIST_RESOURCES = "list_resources"      # Re-list all resources (refresh view)
-    CHECK_DEPS = "check_deps"             # Check what other resources depend on this one
-
-
-from openenv.core.env_server.types import Action as BaseAction
+    QUERY_METRICS = "query_metrics"
+    DELETE = "delete"
+    STOP = "stop"
+    RESIZE = "resize"
+    DETACH = "detach"
+    COMMIT_CHANGES = "commit_changes"
+    LIST_RESOURCES = "list_resources"
+    CHECK_DEPS = "check_deps"
 
 class Action(BaseAction):
     """

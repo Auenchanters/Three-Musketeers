@@ -1,27 +1,4 @@
-"""
-CloudFinOpsEnv — Server Entry Point
-
-Exposes the CloudFinOpsEnvironment over HTTP and WebSocket endpoints,
-compatible with EnvClient and openenv validate.
-
-Endpoints:
-    - POST /reset: Reset the environment
-    - POST /step: Execute an action
-    - GET /state: Get current environment state
-    - GET /schema: Get action/observation schemas
-    - GET /health: Health check
-    - WS /ws: WebSocket endpoint for persistent sessions
-
-Usage:
-    # Via uv run:
-    uv run --project . server
-
-    # Via uvicorn:
-    uvicorn server.app:app --host 0.0.0.0 --port 7860
-
-    # Direct execution:
-    python -m server.app
-"""
+"""Server entry point. Exposes CloudFinOpsEnvironment via HTTP and WebSocket."""
 
 try:
     from openenv.core.env_server import create_app

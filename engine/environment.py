@@ -1,12 +1,6 @@
-"""
-CloudFinOpsEnv — Core Environment Engine
+"""Core environment engine. Implements reset(), step(), and state()."""
 
-Implements reset(), step(), and state() — the three core API methods.
-This is the heart of the project: all game logic lives here.
-"""
-
-import copy
-from typing import Dict, List, Optional, Tuple, Any, Set
+from typing import Dict, List, Optional, Any, Set
 
 from models import (
     ResourceType, ResourceStatus, UsageMetrics,
@@ -31,7 +25,6 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
     """
 
     def __init__(self):
-        # Internal state — populated on reset()
         self._task_id: str = ""
         self._difficulty: str = ""
         self._task_description: str = ""
@@ -39,19 +32,16 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._budget_target: Optional[float] = None
         self._maintenance_window: Optional[str] = None
 
-        # Resource state
-        self._resources: Dict[str, dict] = {}           # resource_id → resource dict
-        self._hidden_metrics: Dict[str, dict] = {}      # resource_id → metrics dict (revealed on query)
-        self._removed_resources: Set[str] = set()        # resource_ids that have been deleted
+        self._resources: Dict[str, dict] = {}
+        self._hidden_metrics: Dict[str, dict] = {}
+        self._removed_resources: Set[str] = set()
 
-        # Oracle data
         self._optimal_savings: float = 0.0
         self._critical_resources: List[str] = []
         self._wasteful_resources: List[str] = []
         self._rightsize_targets: Dict[str, dict] = {}
         self._dep_graph: Optional[DependencyGraph] = None
 
-        # Episode tracking
         self._cost_saved: float = 0.0
         self._cascade_penalty: float = 0.0
         self._penalties_incurred: float = 0.0
@@ -61,13 +51,10 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._actions_taken: List[str] = []
         self._message: str = ""
 
-        # Pricing data
         self._pricing: Dict[str, Any] = {}
-
-        # If reset has ever been called
         self._initialized: bool = False
 
-    # ─── metadata ────────────────────────────────────────────────────────
+    # --- metadata ---
 
     def get_metadata(self) -> EnvironmentMetadata:
         """Return rich metadata for the /metadata endpoint."""
@@ -82,7 +69,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             author="Three Musketeers (Utkarsh, Mohit, Tanush)",
         )
 
-    # ─── reset() ─────────────────────────────────────────────────────────
+    # --- reset ---
 
     def reset(self, seed: Optional[int] = None, episode_id: Optional[str] = None, task_id: str = "easy_orphan_cleanup", **kwargs) -> Observation:
         """
@@ -136,7 +123,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._initialized = True
         return self._build_observation()
 
-    # ─── step() ──────────────────────────────────────────────────────────
+    # --- step ---
 
     def step(self, action: Action, timeout_s: Optional[float] = None, **kwargs) -> Observation:
         """
@@ -199,7 +186,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
         return obs
 
-    # ─── state() ─────────────────────────────────────────────────────────
+    # --- state ---
 
     def state(self) -> EnvironmentState:
         """Return full internal state (god-mode, for grading/debugging)."""
@@ -233,7 +220,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             safety_violations=list(self._safety_violations),
         )
 
-    # ─── Action Handlers ─────────────────────────────────────────────────
+    # --- action handlers ---
 
     def _handle_query_metrics(self, action: Action) -> Reward:
         """Reveal hidden metrics for a resource."""
@@ -550,7 +537,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._message = " | ".join(parts)
         return reward
 
-    # ─── Helpers ──────────────────────────────────────────────────────────
+    # --- helpers ---
 
     def _build_observation(self) -> Observation:
         """Build the agent-visible observation."""

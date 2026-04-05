@@ -1,15 +1,9 @@
-"""
-CloudFinOpsEnv — Reward Calculator
-
-Implements the per-step reward shaping strategy from the blueprint.
-Pure functions — no side effects, fully deterministic, fully testable.
-"""
+"""Per-step reward computation. Deterministic and stateless."""
 
 from models.reward import Reward
-from typing import Dict, Optional
 
 
-# ─── Reward Constants (from Blueprint Section 6) ─────────────────────────
+# --- Reward Constants ---
 REWARD_CORRECT_DELETE = 0.10        # correct delete of orphaned resource
 REWARD_CORRECT_RESIZE = 0.08       # correct resize (saves money)
 REWARD_CORRECT_STOP = 0.05         # correct stop of idle resource

@@ -1,17 +1,9 @@
-"""
-CloudFinOpsEnv — Observation Models
-
-Defines the data structures for what the agent sees at each step:
-- ResourceType: the 7 types of cloud resources
-- ResourceStatus: running, stopped, detached, idle
-- Resource: a single cloud resource with metadata
-- UsageMetrics: 7-day performance metrics (revealed on query)
-- Observation: the full agent-visible state at each step
-"""
+"""Observation models: what the agent sees at each step."""
 
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from enum import Enum
+from openenv.core.env_server.types import Observation as BaseObservation
 
 
 class ResourceType(str, Enum):
@@ -71,8 +63,6 @@ class Resource(BaseModel):
         """Calculate monthly cost (730 hours/month)."""
         return round(self.cost_per_hour * 730, 2)
 
-
-from openenv.core.env_server.types import Observation as BaseObservation
 
 class Observation(BaseObservation):
     """

@@ -1,35 +1,23 @@
 """
-CloudFinOpsEnv — Baseline Inference Script
+Baseline inference script for CloudFinOpsEnv.
 
-Uses OpenAI-compatible client per hackathon requirements.
-Emits [START], [STEP], [END] structured logs.
-Calls the environment server via HTTP.
+Uses an OpenAI-compatible client. Emits [START], [STEP], [END] structured
+logs to stdout. All other output goes to stderr.
 
-Environment Variables:
-    API_BASE_URL  — Base URL for the LLM API (any OpenAI-compatible endpoint)
-    HF_TOKEN / OPENAI_API_KEY  — API key for the LLM provider
-    MODEL_NAME    — Model to use (default: meta-llama/Meta-Llama-3-8B-Instruct)
-    ENV_URL       — CloudFinOpsEnv server URL (default: http://localhost:7860)
-
-Supported Providers:
-    # HuggingFace Inference (default):
-    API_BASE_URL=https://router.huggingface.co/v1  HF_TOKEN=hf_xxx
-
-    # OpenRouter (alternative — supports many models):
-    API_BASE_URL=https://openrouter.ai/api/v1  OPENAI_API_KEY=sk-or-v1-xxx
-
-    # Any OpenAI-compatible API:
-    API_BASE_URL=https://your-api.com/v1  OPENAI_API_KEY=your-key
+Env vars: API_BASE_URL, HF_TOKEN / OPENAI_API_KEY, MODEL_NAME, ENV_URL
 """
 
 import os
 import sys
+import re
 import json
 import time
+import traceback
 import httpx
 from openai import OpenAI
+from client import CloudFinOpsClient
+from models.action import Action, ActionType
 
-# ─── Debug Logging (stderr only) ────────────────────────────────────────
 INFERENCE_DEBUG = os.environ.get("INFERENCE_DEBUG", "0") == "1"
 
 def _debug(msg: str):
@@ -46,14 +34,12 @@ def _warn(msg: str):
 def _error(msg: str):
     print(f"[ERROR] {msg}", file=sys.stderr, flush=True)
 
-# ─── Environment Variables ────────────────────────────────────────────────
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("OPENAI_API_KEY", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
-# ─── Constants ────────────────────────────────────────────────────────────
 
 MAX_STEPS = 30
 TASKS = ["easy_orphan_cleanup", "medium_rightsize", "hard_dependency_migration"]
@@ -85,7 +71,6 @@ Respond with a single JSON action, e.g.:
 """
 
 
-# ─── Structured Logging ──────────────────────────────────────────────────
 
 def log_start(task, env, model):
     print(f"[START] task={task} env={env} model={model}", flush=True)
@@ -105,7 +90,6 @@ def log_end(success, steps, score, rewards):
     )
 
 
-# ─── Observation Formatting ──────────────────────────────────────────────
 
 def format_observation(obs: dict) -> str:
     """Convert observation dict to LLM-friendly text."""
@@ -148,7 +132,6 @@ def format_observation(obs: dict) -> str:
     return "\n".join(lines)
 
 
-# ─── Action Parsing ──────────────────────────────────────────────────────
 
 def parse_action(text: str) -> dict:
     """Parse LLM response text into action dict."""
@@ -175,7 +158,6 @@ def parse_action(text: str) -> dict:
     return {"action_type": "commit_changes", "reason": "Could not parse action, committing."}
 
 
-# ─── Agent Logic ─────────────────────────────────────────────────────────
 
 def get_agent_action(client: OpenAI, observation_text: str, history: list) -> str:
     """Ask the LLM to decide the next action, with retry on failure."""
@@ -204,7 +186,6 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
             text = (completion.choices[0].message.content or "").strip()
             # Strip <think>...</think> tags from thinking models
             if "<think>" in text:
-                import re
                 text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
             return text
         except Exception as e:
@@ -214,11 +195,6 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
     _error(f"All retries exhausted. Last error: {last_err}")
     return '{"action_type": "list_resources", "reason": "LLM error, listing resources."}'
 
-
-# ─── Environment Client ───────────────────────────────────────────────────
-
-from client import CloudFinOpsClient
-from models.action import Action, ActionType
 
 
 def obs_to_dict(obs) -> dict:
@@ -236,7 +212,6 @@ def obs_to_dict(obs) -> dict:
     return d
 
 
-# ─── Main Loop ────────────────────────────────────────────────────────────
 
 def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
     """Run a single task using the OpenEnv WebSocket client and return the score."""
@@ -336,7 +311,6 @@ def main():
             _info(f"Task {task}: {score:.3f}")
         except Exception as e:
             _error(f"Task {task} failed: {e}")
-            import traceback
             traceback.print_exc(file=sys.stderr)
             scores[task] = 0.0
 

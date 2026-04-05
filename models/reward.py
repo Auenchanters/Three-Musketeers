@@ -1,9 +1,4 @@
-"""
-CloudFinOpsEnv — Reward Model
-
-Defines the feedback structure returned after each agent action.
-Includes a numeric value, a breakdown of components, and a human-readable message.
-"""
+"""Reward model. Feedback structure returned after each agent action."""
 
 from pydantic import BaseModel, Field
 from typing import Dict

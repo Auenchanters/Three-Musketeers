@@ -11,21 +11,13 @@ tags:
 
 # CloudFinOpsEnv
 
-**An OpenEnv environment where LLM agents learn to optimize cloud infrastructure costs by identifying waste, right-sizing resources, and safely pruning orphaned assets -- without breaking production.**
+An OpenEnv environment where LLM agents learn to optimize cloud infrastructure costs by identifying waste, right-sizing resources, and safely pruning orphaned assets -- without breaking production.
 
 > **Meta PyTorch OpenEnv Hackathon** | Team: **Three Musketeers** (Utkarsh, Mohit, Tanush)
 
----
-
 ## Motivation
 
-Cloud waste is a **$100B+ annual problem**. According to Flexera's 2024 State of the Cloud report, organizations waste an estimated **32% of their cloud spend** on idle, orphaned, or over-provisioned resources. Fortune 500 companies routinely discover millions of dollars in savings from basic FinOps hygiene -- deleting detached EBS volumes, right-sizing instances running at 2% CPU, and reclaiming unused Elastic IPs.
-
-Today, this work is **manual, tedious, and error-prone**. A single mistake -- deleting a production database or breaking a Kafka cluster's quorum -- can cause outages costing far more than the savings. This is exactly the kind of task where LLM agents can excel: they can reason about resource tags, interpret usage metrics, understand dependency graphs, and make safe optimization decisions at scale.
-
-**CloudFinOpsEnv** is the first OpenEnv environment that benchmarks this capability. It tests whether LLM agents can navigate realistic AWS infrastructure with production constraints, cluster quorum requirements, and cascading dependency risks -- achieving maximum cost savings with zero production impact. An agent that masters this environment represents a genuine step toward **autonomous cloud cost optimization**, a capability that every cloud-using organization needs.
-
----
+Cloud waste costs organizations an estimated 32% of their cloud spend (Flexera 2024). Most of it comes from basic FinOps hygiene: deleting detached volumes, right-sizing instances at 2% CPU, reclaiming unused IPs. This work is manual and error-prone -- one wrong deletion can cause an outage worse than the savings. CloudFinOpsEnv benchmarks whether LLM agents can do this safely: navigate realistic AWS infrastructure with production constraints, dependency graphs, and cluster quorum requirements to maximize savings with zero production impact.
 
 ## Quick Start
 
@@ -56,12 +48,10 @@ python -m pytest tests/ -v
 python test_oracle_e2e.py
 ```
 
----
-
 ## Environment Variables
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| -------- | ----------- | ------- |
 | `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
 | `HF_TOKEN` | HuggingFace API token | `hf_xxxxx` |
 | `MODEL_NAME` | Model identifier | `meta-llama/Meta-Llama-3-8B-Instruct` |
@@ -77,12 +67,10 @@ export ENV_URL="http://localhost:7860"
 python inference.py
 ```
 
----
-
 ## API Endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
+| -------- | ------ | ----------- |
 | `/health` | GET | Health check -- returns `{"status": "healthy"}` |
 | `/reset` | POST | Start new episode: `{"task_id": "easy_orphan_cleanup"}` |
 | `/step` | POST | Take action: `{"action": {"action_type": "delete", "resource_id": "vol-xxx"}}` |
@@ -90,8 +78,6 @@ python inference.py
 | `/schema` | GET | Action, observation, and state JSON schemas |
 | `/metadata` | GET | Environment metadata |
 | `/ws` | WebSocket | Persistent session endpoint (used by `inference.py`) |
-
----
 
 ## Environment Description
 
@@ -102,18 +88,16 @@ CloudFinOpsEnv simulates a realistic AWS cloud infrastructure account containing
 - **Critical production resources** -- must NOT be touched (deleting = instant score zero)
 - **Dependency-linked resources** -- Kafka clusters with quorum, RDS primary/replica pairs, circular dependencies
 
-The agent interacts through a **query -> investigate -> analyze -> act -> commit** loop, using metrics, tags, and dependency checks to make safe optimization decisions.
+The agent interacts through a query, investigate, analyze, act, commit loop, using metrics, tags, and dependency checks to make safe optimization decisions.
 
 ### Resource Types (7)
 
 `ec2_instance`, `ebs_volume`, `rds_instance`, `s3_bucket`, `elastic_ip`, `nat_gateway`, `load_balancer`
 
----
-
 ## Action Space (8 Actions)
 
 | Action | Description | Reward |
-|--------|-------------|--------|
+| ------ | ----------- | ------ |
 | `query_metrics(resource_id)` | Get 7-day CPU/memory/network usage | -0.015 |
 | `check_deps(resource_id)` | Check resource dependencies and cluster info | -0.013 |
 | `delete(resource_id, reason)` | Permanently remove a resource | +0.10 per $10/mo saved |
@@ -123,19 +107,17 @@ The agent interacts through a **query -> investigate -> analyze -> act -> commit
 | `list_resources()` | Refresh resource list | -0.012 |
 | `commit_changes()` | Finalize and end episode | bonus if >50% optimal |
 
-**Safety penalties:**
+Safety penalties:
 - Delete production/critical resource: **-1.01** (catastrophic, zeroes final score)
 - Delete resource with active dependencies: **-0.51**
 - Bad resize (CPU >80% after downsize): **-0.21**
-
----
 
 ## Observation Space
 
 Each observation includes:
 
 | Field | Type | Description |
-|-------|------|-------------|
+| ----- | ---- | ----------- |
 | `task_description` | string | Natural language task brief |
 | `resources` | List[Resource] | Cloud resources with ID, type, name, status, cost/hour, tags, age, attachments, dependencies |
 | `total_monthly_cost` | float | Current total monthly cost (USD) |
@@ -144,11 +126,10 @@ Each observation includes:
 | `step_number` / `max_steps` | int | Current step and episode limit |
 | `message` | string | Environment feedback from last action |
 | `cost_saved_so_far` | float | Total savings achieved |
+| `cost_breakdown` | Dict[str, float] | Monthly cost by resource type |
 | `actions_taken` | List[str] | History of agent actions this episode |
 
-Resource metrics (CPU, memory, network, IOPS) are **hidden** until explicitly queried via `query_metrics`.
-
----
+Resource metrics (CPU, memory, network, IOPS) are hidden until explicitly queried via `query_metrics`.
 
 ## Tasks (3 Difficulty Levels)
 
@@ -157,7 +138,7 @@ Resource metrics (CPU, memory, network, IOPS) are **hidden** until explicitly qu
 - **Max steps:** 15
 - **Objective:** Delete orphaned/detached resources with clear signals (`status: "detached"`, `attached_to: null`)
 - **Optimal savings:** $63.22/month
-- **Expected LLM score:** 0.7 -- 0.9
+- **Estimated LLM score:** 0.7 -- 0.9
 
 ### Task 2: Medium -- Right-Size & Prune
 - **Resources:** 20 (6 wasteful + 3 over-provisioned, 11 production)
@@ -165,7 +146,7 @@ Resource metrics (CPU, memory, network, IOPS) are **hidden** until explicitly qu
 - **Budget target:** $3,800/month
 - **Objective:** Right-size over-provisioned instances AND clean waste. Requires querying metrics and understanding instance tiers.
 - **Optimal savings:** $1,037.84/month
-- **Expected LLM score:** 0.4 -- 0.6
+- **Estimated LLM score:** 0.4 -- 0.6
 
 ### Task 3: Hard -- Dependency-Aware Migration
 - **Resources:** 35 (7 wasteful + 6 resizable, 22 production/critical)
@@ -173,20 +154,18 @@ Resource metrics (CPU, memory, network, IOPS) are **hidden** until explicitly qu
 - **Maintenance window:** 02:00--06:00 UTC
 - **Objective:** Optimize costs with Kafka cluster quorum constraints, RDS primary/replica pairs, circular dependencies, maintenance windows, and decoy resources.
 - **Optimal savings:** $2,513.54/month
-- **Expected LLM score:** 0.1 -- 0.3
-
----
+- **Estimated LLM score:** 0.1 -- 0.3
 
 ## Reward Function
 
-**Per-step rewards** provide continuous signal throughout the episode:
+Per-step rewards provide continuous signal throughout the episode:
 
-- Correct optimizations: **positive** reward proportional to dollar savings
-- Investigation actions (query, check_deps): **tiny negative** cost (encourages efficiency)
-- Deleting production resources: **-1.01** (catastrophic, zeroes entire episode)
+- Correct optimizations: positive reward proportional to dollar savings
+- Investigation actions (query, check_deps): tiny negative cost (encourages efficiency)
+- Deleting production resources: -1.01 (catastrophic, zeroes entire episode)
 - Each step has a small time pressure cost
 
-**Final grading** uses a deterministic oracle formula (no LLM-as-judge):
+Final grading uses a deterministic oracle formula (no LLM-as-judge):
 
 ```
 Easy:   score = (savings / optimal) * safety_mult
@@ -196,25 +175,23 @@ Hard:   score = ((savings - cascade) / optimal) * safety_mult - (steps * 0.003)
 
 `safety_multiplier = 0.0` if any production resource is deleted/stopped. All scores clamped to [0.0, 1.0].
 
----
-
 ## Baseline Scores
 
 ### Oracle Solution (Deterministic, No LLM)
+
 | Task | Score | Savings |
-|------|-------|---------|
+| ---- | ----- | ------- |
 | Easy: Orphan Cleanup | **1.000** | $63.22 / $63.22 (100%) |
 | Medium: Right-Size & Prune | **0.987** | $1,024.41 / $1,037.84 (99%) |
 | Hard: Dependency Migration | **1.000** | $2,582.96 / $2,513.54 (103%) |
 
-### Expected LLM Agent (Meta-Llama-3-8B-Instruct)
-| Task | Expected Score | Notes |
-|------|---------------|-------|
+### Estimated LLM Agent (Meta-Llama-3-8B-Instruct)
+
+| Task | Estimated Score | Notes |
+| ---- | --------------- | ----- |
 | Easy | 0.7 -- 0.9 | Clear signals, most LLMs handle well |
 | Medium | 0.4 -- 0.6 | Requires metrics analysis and tier knowledge |
 | Hard | 0.1 -- 0.3 | Dependency reasoning is genuinely hard for LLMs |
-
----
 
 ## Project Architecture
 
@@ -256,8 +233,6 @@ CloudFinOpsEnv/
     └── test_generator.py     # Data loader and model tests
 ```
 
----
-
 ## Validation
 
 ```bash
@@ -278,18 +253,14 @@ python test_oracle_e2e.py
 # Output: Average Score 0.996, ALL TASKS PASSED
 ```
 
----
-
 ## Design Decisions
 
-1. **Deterministic oracle grader** -- Mathematical formula, no LLM-as-judge, fully reproducible
-2. **Curated JSON scenarios** -- Hand-crafted with real AWS pricing, not randomly generated
-3. **Hidden metrics** -- Agents must explicitly query usage data before acting (mirrors real FinOps)
-4. **Safety-first penalties** -- Deleting production resources is catastrophic (-1.01), encouraging investigation before action
-5. **Scalable difficulty** -- Easy has clear signals, medium requires metric analysis, hard involves graph reasoning with quorum and cascading constraints
-6. **Runs offline** -- Zero external API dependencies, all synthetic data, fits in Docker with <100MB
-
----
+1. **Deterministic oracle grader** -- mathematical formula, no LLM-as-judge, fully reproducible
+2. **Curated JSON scenarios** -- hand-crafted with real AWS pricing, not randomly generated
+3. **Hidden metrics** -- agents must explicitly query usage data before acting (mirrors real FinOps workflows)
+4. **Safety-first penalties** -- deleting production resources is catastrophic (-1.01), encouraging investigation before action
+5. **Scalable difficulty** -- easy has clear signals, medium requires metric analysis, hard involves graph reasoning with quorum and cascading constraints
+6. **Runs offline** -- zero external API dependencies, all synthetic data, fits in Docker with <100MB
 
 ## Team
 

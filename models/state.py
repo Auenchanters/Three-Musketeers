@@ -1,16 +1,9 @@
-"""
-CloudFinOpsEnv — Environment State Model
-
-Internal state returned by state(). Contains oracle/god-mode data
-that the agent does NOT see — used for grading and debugging.
-"""
+"""Environment state model. Internal oracle/god-mode view for grading."""
 
 from pydantic import BaseModel, Field
 from typing import List, Dict
-from .observation import Resource
-
-
 from openenv.core.env_server.types import State as BaseState
+from .observation import Resource
 
 class EnvironmentState(BaseState):
     """

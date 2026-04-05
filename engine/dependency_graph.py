@@ -1,11 +1,6 @@
-"""
-CloudFinOpsEnv — Dependency Graph Manager
+"""Resource dependency graph. Handles quorum checks, replication pairs, and cascading effects."""
 
-Manages resource dependency relationships for safe action validation.
-Handles cluster quorum checks, replication pairs, and cascading effects.
-"""
-
-from typing import Dict, List, Set, Optional, Tuple
+from typing import Dict, List, Set, Optional
 
 
 class DependencyGraph:

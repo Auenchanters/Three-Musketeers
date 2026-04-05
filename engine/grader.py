@@ -1,9 +1,4 @@
-"""
-CloudFinOpsEnv — Oracle Grader
-
-Deterministic scoring formulas for each difficulty level.
-No LLM-as-judge, no ambiguity — pure mathematical grading.
-"""
+"""Deterministic scoring formulas for each difficulty level."""
 
 from typing import List
 
