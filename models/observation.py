@@ -91,3 +91,4 @@ class Observation(BaseObservation):
     message: str = Field(default="", description="Environment feedback after last action")
     cost_saved_so_far: float = Field(default=0.0, description="Total savings achieved so far")
     actions_taken: List[str] = Field(default_factory=list, description="History of agent's actions this episode")
+    cost_breakdown: Optional[Dict[str, float]] = Field(default=None, description="Monthly cost by resource type (e.g. {'ec2_instance': 1200.50, 'ebs_volume': 45.00})")

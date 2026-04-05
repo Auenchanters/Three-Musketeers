@@ -19,9 +19,11 @@ tags:
 
 ## Motivation
 
-Cloud waste is a **$100B+ annual problem**. Every DevOps and FinOps team spends hours manually identifying orphaned EBS volumes, over-provisioned instances, idle NAT gateways, and resources that drain budgets without serving any purpose.
+Cloud waste is a **$100B+ annual problem**. According to Flexera's 2024 State of the Cloud report, organizations waste an estimated **32% of their cloud spend** on idle, orphaned, or over-provisioned resources. Fortune 500 companies routinely discover millions of dollars in savings from basic FinOps hygiene -- deleting detached EBS volumes, right-sizing instances running at 2% CPU, and reclaiming unused Elastic IPs.
 
-CloudFinOpsEnv tests whether LLM agents can learn to do this automatically -- navigating realistic cloud infrastructure with production constraints, resource dependencies, cluster quorum requirements, and budget targets. An agent that masters this environment represents a genuine step toward autonomous cloud cost optimization.
+Today, this work is **manual, tedious, and error-prone**. A single mistake -- deleting a production database or breaking a Kafka cluster's quorum -- can cause outages costing far more than the savings. This is exactly the kind of task where LLM agents can excel: they can reason about resource tags, interpret usage metrics, understand dependency graphs, and make safe optimization decisions at scale.
+
+**CloudFinOpsEnv** is the first OpenEnv environment that benchmarks this capability. It tests whether LLM agents can navigate realistic AWS infrastructure with production constraints, cluster quorum requirements, and cascading dependency risks -- achieving maximum cost savings with zero production impact. An agent that masters this environment represents a genuine step toward **autonomous cloud cost optimization**, a capability that every cloud-using organization needs.
 
 ---
 

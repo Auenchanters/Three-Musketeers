@@ -25,8 +25,26 @@ Supported Providers:
 import os
 import sys
 import json
+import time
 import httpx
 from openai import OpenAI
+
+# ─── Debug Logging (stderr only) ────────────────────────────────────────
+INFERENCE_DEBUG = os.environ.get("INFERENCE_DEBUG", "0") == "1"
+
+def _debug(msg: str):
+    """Print debug info to stderr (never pollutes structured stdout)."""
+    if INFERENCE_DEBUG:
+        print(f"[DEBUG] {msg}", file=sys.stderr, flush=True)
+
+def _info(msg: str):
+    print(f"[INFO] {msg}", file=sys.stderr, flush=True)
+
+def _warn(msg: str):
+    print(f"[WARN] {msg}", file=sys.stderr, flush=True)
+
+def _error(msg: str):
+    print(f"[ERROR] {msg}", file=sys.stderr, flush=True)
 
 # ─── Environment Variables ────────────────────────────────────────────────
 
@@ -40,7 +58,8 @@ ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 MAX_STEPS = 30
 TASKS = ["easy_orphan_cleanup", "medium_rightsize", "hard_dependency_migration"]
 TEMPERATURE = 0.2
-MAX_TOKENS = 500
+MAX_TOKENS = 1024
+RETRY_DELAYS = [3, 6, 12]  # seconds between retries (21s worst case)
 
 SYSTEM_PROMPT = """You are a FinOps agent optimizing cloud infrastructure costs.
 You have access to these actions:
@@ -103,6 +122,12 @@ def format_observation(obs: dict) -> str:
     if obs.get("message"):
         lines.append(f"Last message: {obs['message']}")
 
+    # Cost heatmap by resource type (helps agent prioritize)
+    if obs.get("cost_breakdown"):
+        lines.append("\n--- COST BREAKDOWN BY TYPE ---")
+        for rtype, cost in sorted(obs["cost_breakdown"].items(), key=lambda x: -x[1]):
+            lines.append(f"  {rtype}: ${cost:.2f}/mo")
+
     lines.append(f"\n--- RESOURCES ({len(obs['resources'])} active) ---")
     for r in obs["resources"]:
         monthly = r["cost_per_hour"] * 730
@@ -153,7 +178,7 @@ def parse_action(text: str) -> dict:
 # ─── Agent Logic ─────────────────────────────────────────────────────────
 
 def get_agent_action(client: OpenAI, observation_text: str, history: list) -> str:
-    """Ask the LLM to decide the next action."""
+    """Ask the LLM to decide the next action, with retry on failure."""
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": observation_text},
@@ -163,19 +188,31 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
         messages.append({"role": "assistant", "content": h["action"]})
         messages.append({"role": "user", "content": h["result"]})
 
-    try:
-        completion = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            stream=False,
-        )
-        text = (completion.choices[0].message.content or "").strip()
-        return text
-    except Exception as e:
-        print(f"[ERROR] LLM call failed: {e}", flush=True)
-        return '{"action_type": "commit_changes", "reason": "LLM error, committing."}'
+    last_err = None
+    for attempt, delay in enumerate([0] + RETRY_DELAYS):
+        if delay > 0:
+            _warn(f"Retry {attempt}/{len(RETRY_DELAYS)} after {delay}s...")
+            time.sleep(delay)
+        try:
+            completion = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+                stream=False,
+            )
+            text = (completion.choices[0].message.content or "").strip()
+            # Strip <think>...</think> tags from thinking models
+            if "<think>" in text:
+                import re
+                text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+            return text
+        except Exception as e:
+            last_err = e
+            _error(f"LLM call failed (attempt {attempt+1}): {e}")
+
+    _error(f"All retries exhausted. Last error: {last_err}")
+    return '{"action_type": "list_resources", "reason": "LLM error, listing resources."}'
 
 
 # ─── Environment Client ───────────────────────────────────────────────────
@@ -278,17 +315,17 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
 def main():
     """Run all tasks and report scores."""
     if not API_KEY:
-        print("[WARNING] No API key found. Set HF_TOKEN or OPENAI_API_KEY.", flush=True)
-        print("[INFO] Running in dry-run mode — will test env connectivity only.", flush=True)
+        _warn("No API key found. Set HF_TOKEN or OPENAI_API_KEY.")
+        _info("Running in dry-run mode -- will test env connectivity only.")
 
     llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy")
 
     # Health check
     try:
         health = httpx.get(f"{ENV_URL}/health", timeout=10.0)
-        print(f"[INFO] Environment healthy: {health.json()}", flush=True)
+        _info(f"Environment healthy: {health.json()}")
     except Exception as e:
-        print(f"[ERROR] Cannot connect to environment at {ENV_URL}: {e}", flush=True)
+        _error(f"Cannot connect to environment at {ENV_URL}: {e}")
         sys.exit(1)
 
     scores = {}
@@ -296,24 +333,23 @@ def main():
         try:
             score = run_task(llm_client, ENV_URL, task)
             scores[task] = score
-            print(f"\n{'='*50}")
-            print(f"Task {task}: {score:.3f}")
-            print(f"{'='*50}\n")
+            _info(f"Task {task}: {score:.3f}")
         except Exception as e:
-            print(f"[ERROR] Task {task} failed: {e}", flush=True)
+            _error(f"Task {task} failed: {e}")
             import traceback
-            traceback.print_exc()
+            traceback.print_exc(file=sys.stderr)
             scores[task] = 0.0
 
-    print("\n" + "=" * 60)
-    print("FINAL SCORES")
-    print("=" * 60)
+    # Print summary to stderr (stdout is reserved for structured logs)
+    print("\n" + "=" * 60, file=sys.stderr)
+    print("FINAL SCORES", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
     for task, score in scores.items():
-        status = "✓ PASS" if score >= 0.5 else "✗ FAIL"
-        print(f"  {task}: {score:.3f} {status}")
+        status = "PASS" if score >= 0.5 else "FAIL"
+        print(f"  {task}: {score:.3f} {status}", file=sys.stderr)
     avg = sum(scores.values()) / len(scores) if scores else 0
-    print(f"\n  Average: {avg:.3f}")
-    print("=" * 60)
+    print(f"\n  Average: {avg:.3f}", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
 
 
 if __name__ == "__main__":

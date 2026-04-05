@@ -18,6 +18,7 @@ from engine.reward_calculator import RewardCalculator
 from engine.grader import Grader
 
 from openenv.core.env_server.interfaces import Environment
+from openenv.core.env_server.types import EnvironmentMetadata
 
 class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState]):
     """
@@ -65,6 +66,21 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
         # If reset has ever been called
         self._initialized: bool = False
+
+    # ─── metadata ────────────────────────────────────────────────────────
+
+    def get_metadata(self) -> EnvironmentMetadata:
+        """Return rich metadata for the /metadata endpoint."""
+        return EnvironmentMetadata(
+            name="CloudFinOpsEnv",
+            description=(
+                "An environment where LLM agents optimize cloud infrastructure costs "
+                "by identifying orphaned resources, right-sizing over-provisioned instances, "
+                "and safely pruning waste — without breaking production systems."
+            ),
+            version="1.0.0",
+            author="Three Musketeers (Utkarsh, Mohit, Tanush)",
+        )
 
     # ─── reset() ─────────────────────────────────────────────────────────
 
@@ -562,6 +578,12 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
         total_monthly = round(total_cost_hourly * 730, 2)
 
+        # Compute cost heatmap by resource type
+        cost_by_type: Dict[str, float] = {}
+        for r in active_resources:
+            rtype = r.resource_type.value if hasattr(r.resource_type, "value") else str(r.resource_type)
+            cost_by_type[rtype] = round(cost_by_type.get(rtype, 0.0) + r.cost_per_hour * 730, 2)
+
         return Observation(
             task_description=self._task_description,
             resources=active_resources,
@@ -573,6 +595,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             message=self._message,
             cost_saved_so_far=round(self._cost_saved, 2),
             actions_taken=list(self._actions_taken),
+            cost_breakdown=cost_by_type,
         )
 
     def _invalid_resource(self, rid: Optional[str]) -> Reward:
