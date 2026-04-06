@@ -44,28 +44,35 @@ ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 MAX_STEPS = 30
 TASKS = ["easy_orphan_cleanup", "medium_rightsize", "hard_dependency_migration"]
 TEMPERATURE = 0.2
-MAX_TOKENS = 1024
+MAX_TOKENS = 256
 RETRY_DELAYS = [3, 6, 12]  # seconds between retries (21s worst case)
 
 SYSTEM_PROMPT = """You are a FinOps agent optimizing cloud infrastructure costs.
-You have access to these actions:
-- query_metrics(resource_id): Get 7-day CPU/memory/network usage for a resource
-- check_deps(resource_id): Check what other resources depend on this one
+
+IMPORTANT: You MUST respond with ONLY a single JSON object. No explanation, no reasoning, no text before or after. Just the JSON.
+
+Available actions:
+- query_metrics(resource_id): Get 7-day CPU/memory/network usage
+- check_deps(resource_id): Check dependencies
 - delete(resource_id, reason): Permanently remove a resource
 - stop(resource_id, reason): Stop a running instance
-- resize(resource_id, new_size, reason): Change the size/tier of a resource
-- list_resources(): Refresh the resource list
-- commit_changes(): Finalize your changes and end the episode
+- resize(resource_id, new_size, reason): Change size/tier
+- list_resources(): Refresh resource list
+- detach(resource_id): Detach a volume
+- commit_changes(): Finalize changes and end episode
 
 RULES:
-- NEVER delete resources tagged "production" or "critical"
+- NEVER delete or stop resources tagged "production" or "critical"
 - ALWAYS query_metrics and check_deps before deleting or resizing
 - Optimize for maximum cost savings with zero production impact
-- Provide a reason for every action
+- Start with the highest-cost non-production resources first
+- Do NOT re-check or re-resize resources you already optimized
+- When you have optimized all wasteful resources, IMMEDIATELY use commit_changes
+- If running low on steps, commit_changes to save your progress
 
-Respond with a single JSON action, e.g.:
+RESPOND WITH ONLY JSON. Examples:
 {"action_type": "query_metrics", "resource_id": "vol-abc123"}
-{"action_type": "delete", "resource_id": "vol-abc123", "reason": "Detached volume, unused for 200 days"}
+{"action_type": "delete", "resource_id": "vol-abc123", "reason": "Detached volume, unused"}
 {"action_type": "resize", "resource_id": "i-abc123", "new_size": "t3.small", "reason": "CPU avg 2%"}
 {"action_type": "commit_changes", "reason": "All optimizations complete"}
 """
@@ -93,12 +100,18 @@ def log_end(success, steps, score, rewards):
 
 def format_observation(obs: dict) -> str:
     """Convert observation dict to LLM-friendly text."""
+    steps_remaining = obs['max_steps'] - obs['step_number']
     lines = [
         f"=== TASK: {obs['task_description']} ===",
-        f"Step: {obs['step_number']}/{obs['max_steps']}",
+        f"Step: {obs['step_number']}/{obs['max_steps']} ({steps_remaining} steps remaining)",
         f"Total monthly cost: ${obs['total_monthly_cost']:.2f}",
         f"Cost saved so far: ${obs['cost_saved_so_far']:.2f}",
     ]
+    # Urgency warning when running low on steps
+    if steps_remaining <= 2:
+        lines.append("*** URGENT: You must commit_changes NOW or lose all progress! ***")
+    elif steps_remaining <= 4:
+        lines.append("*** WARNING: Running low on steps. Consider using commit_changes soon. ***")
     if obs.get("budget_target"):
         lines.append(f"Budget target: ${obs['budget_target']:.2f}/month")
     if obs.get("maintenance_window"):
@@ -154,12 +167,13 @@ def parse_action(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    # Fallback: commit if we can't parse
-    return {"action_type": "commit_changes", "reason": "Could not parse action, committing."}
+    # Fallback: list_resources so we don't accidentally end the episode
+    _warn(f"Could not parse LLM response: {text[:200]}")
+    return {"action_type": "list_resources", "reason": "Could not parse action, listing resources."}
 
 
 
-def get_agent_action(client: OpenAI, observation_text: str, history: list) -> str:
+def get_agent_action(client: OpenAI, observation_text: str, history: list, parse_failures: int = 0) -> str:
     """Ask the LLM to decide the next action, with retry on failure."""
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -169,6 +183,13 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
     for h in history[-5:]:
         messages.append({"role": "assistant", "content": h["action"]})
         messages.append({"role": "user", "content": h["result"]})
+
+    # If we've had parse failures, add a strong reminder
+    if parse_failures > 0:
+        messages.append({"role": "user", "content": (
+            "REMINDER: Respond with ONLY a JSON object, no other text. "
+            "Example: {\"action_type\": \"query_metrics\", \"resource_id\": \"vol-abc123\"}"
+        )})
 
     last_err = None
     for attempt, delay in enumerate([0] + RETRY_DELAYS):
@@ -184,9 +205,11 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list) -> st
                 stream=False,
             )
             text = (completion.choices[0].message.content or "").strip()
+            _debug(f"Raw LLM response: {text[:500]}")
             # Strip <think>...</think> tags from thinking models
             if "<think>" in text:
                 text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+                _debug(f"After think-strip: {text[:300]}")
             return text
         except Exception as e:
             last_err = e
@@ -217,6 +240,7 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
     """Run a single task using the OpenEnv WebSocket client and return the score."""
     history = []
     rewards = []
+    parse_failures = 0
 
     log_start(task=task_name, env="CloudFinOpsEnv", model=MODEL_NAME)
 
@@ -232,9 +256,28 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
             # Format observation for LLM
             obs_text = format_observation(obs)
 
-            # Get LLM action
-            action_text = get_agent_action(llm_client, obs_text, history)
-            action_dict = parse_action(action_text)
+            # Safety net: force commit on last step to preserve savings
+            task_max_steps = obs.get("max_steps", MAX_STEPS)
+            if obs.get("step_number", 0) >= task_max_steps - 1:
+                _info(f"Auto-committing on step {step_num} (last step safety net)")
+                action_text = '{"action_type": "commit_changes", "reason": "Final step — committing to preserve savings."}'
+                action_dict = parse_action(action_text)
+            else:
+                # Get LLM action
+                action_text = get_agent_action(llm_client, obs_text, history, parse_failures)
+                action_dict = parse_action(action_text)
+
+            # Track parse failures
+            if action_dict.get("reason", "").startswith("Could not parse"):
+                parse_failures += 1
+            else:
+                parse_failures = 0
+
+            # If stuck in parse failure loop (3+ in a row), commit to save progress
+            if parse_failures >= 3:
+                _warn(f"3 consecutive parse failures — committing to save progress.")
+                action_dict = {"action_type": "commit_changes", "reason": "Committing after repeated parse failures."}
+                parse_failures = 0
 
             # Build typed Action object for the OpenEnv client
             action = Action(
@@ -265,21 +308,27 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
         try:
             final_state = sync_client.state()
             state_dict = final_state.model_dump() if hasattr(final_state, "model_dump") else vars(final_state)
-        except Exception:
+            _debug(f"Final state keys: {list(state_dict.keys())}")
+            _debug(f"cost_saved={state_dict.get('cost_saved')}, optimal={state_dict.get('optimal_savings')}, violations={state_dict.get('safety_violations')}")
+        except Exception as e:
+            _error(f"Failed to get final state: {e}")
             state_dict = {}
 
+    # Score calculation: use grader state if available, otherwise sum rewards
     score = min(max(sum(rewards), 0.0), 1.0)
 
-    # Use actual graded score from state if available
     actual_savings = state_dict.get("cost_saved", 0)
-    optimal_savings = state_dict.get("optimal_savings", 1)
+    optimal_savings = state_dict.get("optimal_savings", 0)
     if optimal_savings > 0:
         ratio = actual_savings / optimal_savings
         has_violations = len(state_dict.get("safety_violations", [])) > 0
+        _info(f"Savings: ${actual_savings:.2f} / ${optimal_savings:.2f} ({ratio:.0%}), violations={has_violations}")
         if has_violations:
             score = 0.0
         else:
             score = min(max(ratio - (step_num * 0.005), 0.0), 1.0)
+    else:
+        _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
 
     success = score >= 0.5
     log_end(success=success, steps=step_num, score=round(score, 3), rewards=rewards)
