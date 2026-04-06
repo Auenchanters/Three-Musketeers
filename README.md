@@ -185,13 +185,15 @@ Hard:   score = ((savings - cascade) / optimal) * safety_mult - (steps * 0.003)
 | Medium: Right-Size & Prune | **0.987** | $1,024.41 / $1,037.84 (99%) |
 | Hard: Dependency Migration | **1.000** | $2,582.96 / $2,513.54 (103%) |
 
-### Estimated LLM Agent (Meta-Llama-3-8B-Instruct)
+### LLM Agent Baseline (Llama 3.1 8B via Groq)
 
-| Task | Estimated Score | Notes |
-| ---- | --------------- | ----- |
-| Easy | 0.7 -- 0.9 | Clear signals, most LLMs handle well |
-| Medium | 0.4 -- 0.6 | Requires metrics analysis and tier knowledge |
-| Hard | 0.1 -- 0.3 | Dependency reasoning is genuinely hard for LLMs |
+| Task | Score | Notes |
+| ---- | ----- | ----- |
+| Easy | 0.745 | Deletes 5/6 wasteful resources, commits on step 14 |
+| Medium | 0.6 -- 1.0 | Resizes instances and deletes waste; varies by run |
+| Hard | 0.3 -- 1.0 | Dependency reasoning is genuinely hard for smaller LLMs |
+
+Scores vary across models and runs. Larger models (70B+) generally perform better on medium and hard tasks.
 
 ## Project Architecture
 
