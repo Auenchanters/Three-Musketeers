@@ -188,6 +188,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
     # --- state ---
 
+    @property
     def state(self) -> EnvironmentState:
         """Return full internal state (god-mode, for grading/debugging)."""
         if not self._initialized:

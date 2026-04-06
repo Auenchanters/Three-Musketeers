@@ -242,7 +242,7 @@ class TestListResources:
 
 class TestState:
     def test_state_returns_full_info(self, easy_env):
-        state = easy_env.state()
+        state = easy_env.state
         assert state.task_id == "easy_orphan_cleanup"
         assert state.optimal_savings > 0
         assert len(state.critical_resources) > 0
@@ -251,7 +251,7 @@ class TestState:
     def test_state_not_initialized_raises(self):
         env = CloudFinOpsEnvironment()
         with pytest.raises(RuntimeError, match="not initialized"):
-            env.state()
+            _ = env.state
 
 
 # ─── Oracle Solution Tests ────────────────────────────────────────────────
