@@ -80,7 +80,8 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         """
         scenario = load_scenario(task_id)
         solution = load_solution(task_id)
-        self._pricing = load_pricing()
+        if not self._pricing:
+            self._pricing = load_pricing()
 
         self._task_id = task_id
         self._difficulty = scenario["task_difficulty"]
@@ -305,7 +306,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
                 return reward
 
         # SUCCESS: Safe to delete
-        monthly_cost = resource.get("cost_per_hour", 0) * 730
+        monthly_cost = round(resource.get("cost_per_hour", 0) * 730, 2)
         self._cost_saved += monthly_cost
         self._removed_resources.add(rid)
         reward = RewardCalculator.successful_delete_reward(rid, monthly_cost)
@@ -337,9 +338,9 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             return RewardCalculator.invalid_action_reward(f"Resource {rid} is already stopped.")
 
         # Stop it (saves money but less than delete since reversible)
-        monthly_cost = resource.get("cost_per_hour", 0) * 730
+        monthly_cost = round(resource.get("cost_per_hour", 0) * 730, 2)
         # Stopped instances still incur some cost (EBS, EIPs), so savings ≈ 70%
-        effective_savings = monthly_cost * 0.7
+        effective_savings = round(monthly_cost * 0.7, 2)
         self._cost_saved += effective_savings
         resource["status"] = "stopped"
 
@@ -397,7 +398,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
                 f"Unknown instance type: {new_size}"
             )
 
-        monthly_savings = (old_cost_hr - new_cost_hr) * 730
+        monthly_savings = round((old_cost_hr - new_cost_hr) * 730, 2)
         if monthly_savings < 0:
             return RewardCalculator.invalid_action_reward(
                 f"Resize {current_type} → {new_size} would increase costs by ${abs(monthly_savings):.2f}/month."
@@ -439,7 +440,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             ratios = {"STANDARD": 1.0, "STANDARD_IA": 0.5, "GLACIER": 0.22, "DEEP_ARCHIVE": 0.05}
             new_cost_hr = old_cost_hr * ratios.get(new_class, 0.5)
 
-        monthly_savings = (old_cost_hr - new_cost_hr) * 730
+        monthly_savings = round((old_cost_hr - new_cost_hr) * 730, 2)
         self._cost_saved += monthly_savings
         resource["cost_per_hour"] = new_cost_hr
         resource["tags"]["storage_class"] = new_class

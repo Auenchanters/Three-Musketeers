@@ -13,9 +13,14 @@ from engine.environment import CloudFinOpsEnvironment
 
 
 from collections import namedtuple
+from dataclasses import dataclass
 
-# Dummy reward for backwards compatibility in tests
-DummyReward = namedtuple("DummyReward", ["value", "message", "is_valid"])
+# Object to wrap reward value for backwards compatibility in tests
+@dataclass
+class DummyReward:
+    value: float
+    message: str
+    is_valid: bool = True
 
 class _TestEnvWrapper:
     """Wraps the fully compliant OpenEnv to behave like our old local tuple version strictly for testing."""
@@ -189,6 +194,36 @@ class TestStop:
         assert reward.value < 0
         assert len(info["safety_violations"]) > 0
 
+
+# ─── Detach Tests ───────────────────────────────────────────────────────────
+
+class TestDetach:
+    def test_detach_volume(self, medium_env):
+        """Detaching an attached volume should succeed and change status to detached."""
+        # Find an attached volume in medium_env (vol-0b2c3d4e5f6a70001 is originally attached but test deletes it first in e2e, here we just detach it)
+        action = Action(action_type=ActionType.DETACH, resource_id="vol-0b2c3d4e5f6a70001")
+        obs, reward, done, info = medium_env.step(action)
+        # Verify it got detached
+        vol = next(r for r in obs.resources if r.resource_id == "vol-0b2c3d4e5f6a70001")
+        assert vol.attached_to is None
+        assert vol.status.value == "detached"
+        assert reward.value < 0  # minor step penalty
+
+    def test_detach_unattached_volume(self, easy_env):
+        """Detaching a volume that is already detached should fail gracefully."""
+        # vol-0a1b2c3d4e5f60001 is already detached in easy env
+        action = Action(action_type=ActionType.DETACH, resource_id="vol-0a1b2c3d4e5f60001")
+        obs, reward, done, info = easy_env.step(action)
+        assert "not attached" in reward.message.lower()
+
+    def test_detach_deleted_resource(self, easy_env):
+        """Detaching a deleted resource should fail."""
+        # First delete it
+        easy_env.step(Action(action_type=ActionType.DELETE, resource_id="vol-0a1b2c3d4e5f60001"))
+        # Then detach it
+        action = Action(action_type=ActionType.DETACH, resource_id="vol-0a1b2c3d4e5f60001")
+        obs, reward, done, info = easy_env.step(action)
+        assert "deleted" in reward.message.lower()
 
 # ─── Commit Tests ─────────────────────────────────────────────────────────
 

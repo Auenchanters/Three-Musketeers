@@ -7,6 +7,7 @@ No randomness — all data is hand-crafted JSON fixtures with real AWS pricing.
 
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -79,9 +80,10 @@ def load_solution(task_id: str) -> Dict[str, Any]:
     return solution
 
 
+@lru_cache(maxsize=1)
 def load_pricing() -> Dict[str, Any]:
     """
-    Load the AWS pricing reference data.
+    Load the AWS pricing reference data (cached after first call).
 
     Returns a dict with keys:
         - ec2_instances: Dict[instance_type → {vcpu, memory_gb, cost_per_hour}]

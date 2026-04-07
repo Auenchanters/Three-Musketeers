@@ -65,10 +65,18 @@ RULES:
 - NEVER delete or stop resources tagged "production" or "critical"
 - ALWAYS query_metrics and check_deps before deleting or resizing
 - Optimize for maximum cost savings with zero production impact
-- Start with the highest-cost non-production resources first
-- Do NOT re-check or re-resize resources you already optimized
+- Attack the highest-cost resources first! Priority is to maximize savings.
+- Do NOT re-check or re-resize resources you already optimized.
+- Do NOT repeatedly query_metrics on the same resource once its metrics are available in the observation.
+- Valid EC2 resize path example: m5.xlarge -> t3.small, m5.large -> t3.medium. Valid RDS Path: db.r5.xlarge -> db.t3.medium. S3 paths: STANDARD -> STANDARD_IA -> GLACIER.
 - When you have optimized all wasteful resources, IMMEDIATELY use commit_changes
 - If running low on steps, commit_changes to save your progress
+
+WORKFLOW:
+1. Identify high-cost non-production resources.
+2. If metrics/deps are unknown, use query_metrics/check_deps.
+3. If waste, use delete() or stop(). If over-provisioned (low CPU), use resize().
+4. Repeat. Once all waste is handled, commit_changes().
 
 RESPOND WITH ONLY JSON. Examples:
 {"action_type": "query_metrics", "resource_id": "vol-abc123"}
@@ -180,7 +188,17 @@ def get_agent_action(client: OpenAI, observation_text: str, history: list, parse
         {"role": "user", "content": observation_text},
     ]
     # Include recent history for context
-    for h in history[-5:]:
+    # Filter out duplicate historical actions to avoid context flooding
+    deduped_history = []
+    seen_actions = set()
+    for h in reversed(history):
+        if h["action"] not in seen_actions:
+            seen_actions.add(h["action"])
+            deduped_history.insert(0, h)
+        if len(deduped_history) >= 5:
+            break
+
+    for h in deduped_history:
         messages.append({"role": "assistant", "content": h["action"]})
         messages.append({"role": "user", "content": h["result"]})
 
