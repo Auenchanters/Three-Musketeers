@@ -92,15 +92,21 @@ def log_start(task, env, model):
 
 
 def log_step(step, action, reward, done, error=None):
+    # Compact JSON (no spaces) so the line stays whitespace-tokenizable
+    action_str = json.dumps(action, separators=(",", ":"))
+    done_str = "true" if done else "false"
+    error_str = "null" if error is None else str(error)
     print(
-        f"[STEP] step={step} action={json.dumps(action)} reward={reward} done={done} error={error}",
+        f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_str} error={error_str}",
         flush=True,
     )
 
 
-def log_end(success, steps, score, rewards):
+def log_end(success, steps, rewards):
+    success_str = "true" if success else "false"
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={success} steps={steps} score={score} rewards={json.dumps(rewards)}",
+        f"[END] success={success_str} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -349,7 +355,7 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
         _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
 
     success = score >= 0.5
-    log_end(success=success, steps=step_num, score=round(score, 3), rewards=rewards)
+    log_end(success=success, steps=step_num, rewards=rewards)
 
     return score
 
