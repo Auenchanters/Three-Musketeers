@@ -86,4 +86,4 @@ class Grader:
         else:
             raw_score = (actual_savings / optimal_savings) * safety_mult
 
-        return max(0.01, min(0.99, raw_score))
+        return round(min(max(raw_score, 0.01), 0.99), 4)

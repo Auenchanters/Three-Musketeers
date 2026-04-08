@@ -90,8 +90,8 @@ RESPOND WITH ONLY JSON. Examples:
 
 
 def _safe_reward(r: float) -> float:
-    """Clamp a reward to strictly inside (0, 1) for validator compliance."""
-    return max(0.01, min(0.99, float(r)))
+    """Clamp a value to strictly inside (0, 1) for validator compliance."""
+    return round(min(max(float(r), 0.01), 0.99), 4)
 
 
 def log_start(task, env, model):
@@ -100,30 +100,31 @@ def log_start(task, env, model):
 
 
 def log_step(step, action, reward, done, error=None):
-    """Emit [STEP] line per spec."""
+    """Emit [STEP] line per spec. Reward is clamped to (0, 1)."""
+    safe_r = _safe_reward(reward)
     action_str = json.dumps(action, separators=(",", ":"))
     done_str = "true" if done else "false"
     error_str = "null" if error is None else str(error)
     print(
-        f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_str} error={error_str}",
+        f"[STEP] step={step} action={action_str} reward={safe_r:.4f} done={done_str} error={error_str}",
         flush=True,
     )
 
 
-def log_end(success, steps, rewards):
+def log_end(success, steps, rewards, score):
     """Emit [END] line per spec.
 
-    Format: [END] success=<true|false> steps=<n> rewards=<r1,r2,...,rn>
+    Format: [END] success=<true|false> steps=<n> rewards=<r1,...> score=<s>
 
-    The validator requires each task score to be strictly inside (0, 1).
-    We clamp every reward value to [0.01, 0.99] to guarantee this.
+    The validator parses score= from this line and requires it strictly
+    inside (0, 1). All values are clamped to [0.01, 0.99].
     """
     success_str = "true" if success else "false"
-    # Clamp each reward to strictly inside (0, 1)
     safe_rewards = [_safe_reward(r) for r in rewards]
-    rewards_str = ",".join(f"{r:.2f}" for r in safe_rewards)
+    rewards_str = ",".join(f"{r:.4f}" for r in safe_rewards)
+    safe_score = _safe_reward(score)
     print(
-        f"[END] success={success_str} steps={steps} rewards={rewards_str}",
+        f"[END] success={success_str} steps={steps} rewards={rewards_str} score={safe_score:.4f}",
         flush=True,
     )
 
@@ -383,11 +384,12 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
 
     finally:
         # [END] ALWAYS emitted, even on exception.
-        # Rewards are clamped to (0, 1) inside log_end.
+        # All values are clamped to (0.01, 0.99) inside log_end.
         log_end(
             success=success,
             steps=max(step_num, 1),
             rewards=rewards if rewards else [0.50],
+            score=score,
         )
 
     return score
@@ -408,18 +410,30 @@ def main():
     scores = {}
     for task in TASKS:
         score = run_task(llm_client, ENV_URL, task)
+        # Ensure score is strictly inside (0, 1)
+        score = _safe_reward(score)
         scores[task] = score
-        _info(f"Task {task}: {score:.3f}")
+        _info(f"Task {task}: {score:.4f}")
 
-    # Human-readable summary on stderr (stdout reserved for structured logs)
+    # Emit structured per-task RESULT lines on stdout for the validator
+    for task, sc in scores.items():
+        print(f"[RESULT] task={task} score={sc:.4f}", flush=True)
+
+    # Summary on stdout (validator may parse this)
+    avg = sum(scores.values()) / len(scores) if scores else 0.50
+    avg = _safe_reward(avg)
+    print(f"\n[SUMMARY] Average score: {avg:.4f}", flush=True)
+    for task, sc in scores.items():
+        print(f"  {task}: {sc:.4f}", flush=True)
+
+    # Human-readable summary on stderr
     print("\n" + "=" * 60, file=sys.stderr)
     print("FINAL SCORES", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
-    for task, score in scores.items():
-        status = "PASS" if score >= 0.5 else "FAIL"
-        print(f"  {task}: {score:.3f} {status}", file=sys.stderr)
-    avg = sum(scores.values()) / len(scores) if scores else 0
-    print(f"\n  Average: {avg:.3f}", file=sys.stderr)
+    for task, sc in scores.items():
+        status = "PASS" if sc >= 0.5 else "FAIL"
+        print(f"  {task}: {sc:.4f} {status}", file=sys.stderr)
+    print(f"\n  Average: {avg:.4f}", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
 
 
