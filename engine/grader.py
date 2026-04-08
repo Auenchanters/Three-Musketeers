@@ -11,7 +11,7 @@ class Grader:
     Medium: score = (actual / optimal) * safety_mult - (steps * 0.005)
     Hard:   score = ((actual - cascade_pen) / optimal) * safety_mult - (steps * 0.003)
     
-    All scores clamped to [0.0, 1.0].
+    All scores clamped to (0.01, 0.99) — strictly within (0, 1) as required by validator.
     """
 
     @staticmethod
@@ -27,18 +27,18 @@ class Grader:
         - No violations → 1.0
         """
         if not safety_violations:
-            return 1.0
+            return 0.99
 
         # Check for production violations (catastrophic)
         for v in safety_violations:
             if "production" in v.lower() or "critical" in v.lower():
-                return 0.0
+                return 0.01
 
         # Non-production violations (staging mistakes etc.)
         if difficulty in ("medium", "hard"):
-            return 0.7
+            return 0.7  # already within (0, 1)
 
-        return 1.0
+        return 0.99
 
     @staticmethod
     def compute_final_score(
@@ -61,10 +61,10 @@ class Grader:
             cascade_penalty: Cost of unintended cascading side-effects (hard only).
             
         Returns:
-            Score clamped to [0.0, 1.0].
+            Score clamped to (0.01, 0.99) — strictly within (0, 1).
         """
         if optimal_savings <= 0:
-            return 0.0
+            return 0.01
 
         safety_mult = Grader.compute_safety_multiplier(safety_violations, difficulty)
 
@@ -86,4 +86,4 @@ class Grader:
         else:
             raw_score = (actual_savings / optimal_savings) * safety_mult
 
-        return max(0.0, min(1.0, raw_score))
+        return max(0.01, min(0.99, raw_score))

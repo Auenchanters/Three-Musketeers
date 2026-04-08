@@ -339,7 +339,7 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
             state_dict = {}
 
     # Score calculation: use grader state if available, otherwise sum rewards
-    score = min(max(sum(rewards), 0.0), 1.0)
+    score = min(max(sum(rewards), 0.01), 0.99)
 
     actual_savings = state_dict.get("cost_saved", 0)
     optimal_savings = state_dict.get("optimal_savings", 0)
@@ -348,9 +348,9 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
         has_violations = len(state_dict.get("safety_violations", [])) > 0
         _info(f"Savings: ${actual_savings:.2f} / ${optimal_savings:.2f} ({ratio:.0%}), violations={has_violations}")
         if has_violations:
-            score = 0.0
+            score = 0.01
         else:
-            score = min(max(ratio - (step_num * 0.005), 0.0), 1.0)
+            score = min(max(ratio - (step_num * 0.005), 0.01), 0.99)
     else:
         _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
 
@@ -385,7 +385,7 @@ def main():
         except Exception as e:
             _error(f"Task {task} failed: {e}")
             traceback.print_exc(file=sys.stderr)
-            scores[task] = 0.0
+            scores[task] = 0.01
 
     # Print summary to stderr (stdout is reserved for structured logs)
     print("\n" + "=" * 60, file=sys.stderr)
