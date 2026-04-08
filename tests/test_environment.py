@@ -107,7 +107,7 @@ class TestQueryMetrics:
     def test_query_metrics_reward(self, easy_env):
         action = Action(action_type=ActionType.QUERY_METRICS, resource_id="vol-0a1b2c3d4e5f60001")
         obs, reward, done, info = easy_env.step(action)
-        assert reward.value < 0  # small negative cost
+        assert reward.value == 0.01  # clamped: raw is negative, floor is 0.01
         assert done is False
 
     def test_query_invalid_resource(self, easy_env):
@@ -133,7 +133,7 @@ class TestDelete:
         """Deleting a production resource should give catastrophic penalty."""
         action = Action(action_type=ActionType.DELETE, resource_id="i-0a1b2c3d4e5f60007")
         obs, reward, done, info = easy_env.step(action)
-        assert reward.value < -0.5
+        assert reward.value == 0.01  # clamped: catastrophic penalty clamped to floor
         assert len(info["safety_violations"]) > 0
         assert "production" in reward.message.lower() or "critical" in reward.message.lower()
 
@@ -191,7 +191,7 @@ class TestStop:
         """Stopping a production instance should give penalty."""
         action = Action(action_type=ActionType.STOP, resource_id="i-0a1b2c3d4e5f60007")
         obs, reward, done, info = easy_env.step(action)
-        assert reward.value < 0
+        assert reward.value == 0.01  # clamped: penalty clamped to floor
         assert len(info["safety_violations"]) > 0
 
 
@@ -207,7 +207,7 @@ class TestDetach:
         vol = next(r for r in obs.resources if r.resource_id == "vol-0b2c3d4e5f6a70001")
         assert vol.attached_to is None
         assert vol.status.value == "detached"
-        assert reward.value < 0  # minor step penalty
+        assert reward.value == 0.01  # clamped: step penalty clamped to floor
 
     def test_detach_unattached_volume(self, easy_env):
         """Detaching a volume that is already detached should fail gracefully."""
@@ -260,7 +260,7 @@ class TestCheckDeps:
     def test_check_deps_cost(self, hard_env):
         action = Action(action_type=ActionType.CHECK_DEPS, resource_id="i-0c3d4e5f6a7b80012")
         obs, reward, done, info = hard_env.step(action)
-        assert reward.value < 0  # small cost
+        assert reward.value == 0.01  # clamped: investigation cost clamped to floor
 
 
 # ─── List Resources Tests ────────────────────────────────────────────────
@@ -270,7 +270,7 @@ class TestListResources:
         action = Action(action_type=ActionType.LIST_RESOURCES)
         obs, reward, done, info = easy_env.step(action)
         assert len(obs.resources) == 10
-        assert reward.value < 0  # small cost
+        assert reward.value == 0.01  # clamped: investigation cost clamped to floor
 
 
 # ─── State Tests ──────────────────────────────────────────────────────────
