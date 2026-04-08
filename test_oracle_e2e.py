@@ -19,7 +19,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from client import CloudFinOpsClient
-from models.action import Action, ActionType
+from models.action import Action
 from data.generator import load_solution, get_available_tasks
 
 
@@ -151,7 +151,7 @@ def main():
             print(f"ERROR running {task_id}: {e}")
             import traceback
             traceback.print_exc()
-            results[task_id] = {"score": 0.0, "success": False, "error": str(e)}
+            results[task_id] = {"score": 0.01, "success": False, "error": str(e)}
 
     # Final report
     print(f"\n\n{'='*60}")

@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Any, Set
 
 from models import (
-    ResourceType, ResourceStatus, UsageMetrics,
+    UsageMetrics,
     Resource, Observation, Action, ActionType, Reward, EnvironmentState,
 )
 from data.generator import load_scenario, load_solution, load_pricing, get_valid_resize_targets
