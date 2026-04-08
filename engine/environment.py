@@ -122,10 +122,7 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._message = f"Episode started. Task: {self._task_description}"
 
         self._initialized = True
-        obs = self._build_observation()
-        obs.reward = 0.01  # Validator requires ALL scores in (0, 1), even on reset
-        obs.done = False
-        return obs
+        return self._build_observation(reward=0.01, done=False)
 
     # --- step ---
 
@@ -181,21 +178,16 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             "safety_violations": list(self._safety_violations),
         }
 
-        obs = self._build_observation()
         # The OpenEnv validator requires obs.reward to be strictly inside
         # (0, 1) on EVERY step response — not just the final one.
-        # Use the Grader's clamped final score when done, otherwise clamp
-        # the per-step reward (which can be negative or > 1).
         if self._done:
             raw_reward = self.get_final_score()
         else:
             raw_reward = reward.value
-        obs.reward = round(min(max(float(raw_reward), 0.01), 0.99), 4)
-        obs.done = self._done
+        clamped = round(min(max(float(raw_reward), 0.01), 0.99), 4)
 
-        # Add metadata internally or append the info object
+        obs = self._build_observation(reward=clamped, done=self._done)
         obs.metadata = info
-
         return obs
 
     # --- state ---
@@ -552,15 +544,14 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
     # --- helpers ---
 
-    def _build_observation(self) -> Observation:
-        """Build the agent-visible observation."""
+    def _build_observation(self, reward: float = 0.01, done: bool = False) -> Observation:
+        """Build the agent-visible observation with reward always in (0, 1)."""
         active_resources = []
         total_cost_hourly = 0.0
 
         for rid, rdata in self._resources.items():
             if rid in self._removed_resources:
                 continue
-            # Build Resource model (with or without metrics depending on visibility)
             r = Resource(
                 resource_id=rdata["resource_id"],
                 resource_type=rdata["resource_type"],
@@ -578,11 +569,13 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
 
         total_monthly = round(total_cost_hourly * 730, 2)
 
-        # Compute cost heatmap by resource type
         cost_by_type: Dict[str, float] = {}
         for r in active_resources:
             rtype = r.resource_type.value if hasattr(r.resource_type, "value") else str(r.resource_type)
             cost_by_type[rtype] = round(cost_by_type.get(rtype, 0.0) + r.cost_per_hour * 730, 2)
+
+        # Clamp reward strictly within (0, 1) — never 0.0 or 1.0
+        safe_reward = round(min(max(float(reward), 0.01), 0.99), 4)
 
         return Observation(
             task_description=self._task_description,
@@ -596,6 +589,8 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             cost_saved_so_far=round(self._cost_saved, 2),
             actions_taken=list(self._actions_taken),
             cost_breakdown=cost_by_type,
+            reward=safe_reward,
+            done=done,
         )
 
     def _invalid_resource(self, rid: Optional[str]) -> Reward:
