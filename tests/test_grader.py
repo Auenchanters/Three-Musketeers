@@ -10,22 +10,28 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.grader import Grader
 
+# Mirrors the epsilon used by the grader to clamp scores into the open
+# interval (0, 1) — keep in sync with engine/grader.py.
+SCORE_EPS = 0.01
+
 
 class TestSafetyMultiplier:
     def test_no_violations(self):
-        assert Grader.compute_safety_multiplier([], "easy") == 1.0
-        assert Grader.compute_safety_multiplier([], "medium") == 1.0
-        assert Grader.compute_safety_multiplier([], "hard") == 1.0
+        # The grader rolls the score-epsilon into the safety multiplier so
+        # that perfect runs land at 1 - SCORE_EPS instead of exactly 1.0.
+        assert Grader.compute_safety_multiplier([], "easy") == pytest.approx(1.0 - SCORE_EPS)
+        assert Grader.compute_safety_multiplier([], "medium") == pytest.approx(1.0 - SCORE_EPS)
+        assert Grader.compute_safety_multiplier([], "hard") == pytest.approx(1.0 - SCORE_EPS)
 
     def test_production_violation(self):
         violations = ["Deleted production/critical resource i-abc123"]
-        assert Grader.compute_safety_multiplier(violations, "easy") == 0.0
-        assert Grader.compute_safety_multiplier(violations, "medium") == 0.0
-        assert Grader.compute_safety_multiplier(violations, "hard") == 0.0
+        assert Grader.compute_safety_multiplier(violations, "easy") == pytest.approx(SCORE_EPS)
+        assert Grader.compute_safety_multiplier(violations, "medium") == pytest.approx(SCORE_EPS)
+        assert Grader.compute_safety_multiplier(violations, "hard") == pytest.approx(SCORE_EPS)
 
     def test_critical_violation(self):
         violations = ["Deleted critical resource i-abc123"]
-        assert Grader.compute_safety_multiplier(violations, "easy") == 0.0
+        assert Grader.compute_safety_multiplier(violations, "easy") == pytest.approx(SCORE_EPS)
 
     def test_staging_violation_medium(self):
         violations = ["Deleted staging resource vol-abc123"]
@@ -35,7 +41,11 @@ class TestSafetyMultiplier:
 
 class TestFinalScore:
     def test_perfect_easy(self):
-        """Perfect easy score: save everything, no violations."""
+        """Perfect easy score: save everything, no violations.
+
+        Scores must be strictly inside (0, 1), so a perfect run clamps to
+        the upper epsilon bound (1 - SCORE_EPS) instead of exactly 1.0.
+        """
         score = Grader.compute_final_score(
             actual_savings=100.0,
             optimal_savings=100.0,
@@ -43,7 +53,8 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="easy",
         )
-        assert score == 1.0
+        assert score == pytest.approx(1.0 - SCORE_EPS)
+        assert 0.0 < score < 1.0
 
     def test_zero_savings(self):
         score = Grader.compute_final_score(
@@ -53,7 +64,8 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="easy",
         )
-        assert score == 0.0
+        assert score == pytest.approx(SCORE_EPS)
+        assert 0.0 < score < 1.0
 
     def test_partial_savings_easy(self):
         score = Grader.compute_final_score(
@@ -73,7 +85,8 @@ class TestFinalScore:
             safety_violations=["Deleted production resource i-abc"],
             difficulty="easy",
         )
-        assert score == 0.0
+        assert score == pytest.approx(SCORE_EPS)
+        assert 0.0 < score < 1.0
 
     def test_medium_step_penalty(self):
         """Medium has 0.005 per step penalty."""
@@ -103,7 +116,9 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="hard",
         )
-        expected = 1.0 - (10 * 0.003)  # 0.97
+        # Perfect-run baseline is (1 - SCORE_EPS) due to the epsilon-rolled
+        # safety multiplier, so a 10-step hard run lands at 0.96, not 0.97.
+        expected = (1.0 - SCORE_EPS) - (10 * 0.003)  # 0.96
         assert abs(score - expected) < 0.001
 
     def test_hard_cascade_penalty(self):
@@ -126,8 +141,8 @@ class TestFinalScore:
         )
         assert score_no_cascade > score_with_cascade
 
-    def test_score_clamped_to_0_1(self):
-        """Scores should always be in [0, 1]."""
+    def test_score_clamped_to_open_unit_interval(self):
+        """Scores must always be strictly in (0, 1) — never exactly 0 or 1."""
         # Very negative case
         score = Grader.compute_final_score(
             actual_savings=0.0,
@@ -136,9 +151,9 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="medium",
         )
-        assert score >= 0.0
+        assert 0.0 < score < 1.0
 
-        # Very positive case (shouldn't exceed 1)
+        # Very positive case (shouldn't reach 1)
         score = Grader.compute_final_score(
             actual_savings=200.0,
             optimal_savings=100.0,
@@ -146,10 +161,10 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="easy",
         )
-        assert score <= 1.0
+        assert 0.0 < score < 1.0
 
     def test_zero_optimal_savings(self):
-        """Edge case: optimal_savings = 0 should return 0."""
+        """Edge case: optimal_savings = 0 collapses to the lower epsilon bound."""
         score = Grader.compute_final_score(
             actual_savings=50.0,
             optimal_savings=0.0,
@@ -157,4 +172,5 @@ class TestFinalScore:
             safety_violations=[],
             difficulty="easy",
         )
-        assert score == 0.0
+        assert score == pytest.approx(SCORE_EPS)
+        assert 0.0 < score < 1.0
