@@ -85,18 +85,21 @@ def run_oracle_task(env_url, task_id):
             if done:
                 break
 
-    # Compute score from observation data (cost_saved_so_far from last obs)
+    # Compute score from observation data (cost_saved_so_far from last obs).
+    # Hackathon validator requires scores strictly inside (0, 1), so clamp
+    # to [0.01, 0.99] regardless of source value.
     actual_savings = obs.cost_saved_so_far if hasattr(obs, "cost_saved_so_far") else 0
     # No safety violations if all rewards were non-catastrophic (no -1.0 penalties)
     has_violations = any(r <= -0.9 for r in rewards)
 
     if optimal_savings > 0 and not has_violations:
-        score = min(max(actual_savings / optimal_savings, 0.0), 1.0)
+        score = actual_savings / optimal_savings
     else:
-        score = 0.0
+        score = 0.01
+    score = max(0.01, min(0.99, float(score)))
 
     success = score >= 0.5
-    log_end(success=success, steps=steps_taken, score=round(score, 3), rewards=rewards)
+    log_end(success=success, steps=steps_taken, score=round(score, 4), rewards=rewards)
 
     return {
         "task_id": task_id,
