@@ -36,7 +36,10 @@ def _error(msg: str):
 
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("OPENAI_API_KEY", "")
+HF_TOKEN = os.getenv("HF_TOKEN")
+if HF_TOKEN is None:
+    raise ValueError("HF_TOKEN environment variable is required")
+API_KEY = HF_TOKEN
 MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
@@ -265,97 +268,113 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
     history = []
     rewards = []
     parse_failures = 0
+    step_num = 0
 
     log_start(task=task_name, env="CloudFinOpsEnv", model=MODEL_NAME)
 
-    # Use the sync wrapper of the OpenEnv WebSocket client
-    sync_client = CloudFinOpsClient(base_url=env_url).sync()
+    try:
+        # Use the sync wrapper of the OpenEnv WebSocket client
+        sync_client = CloudFinOpsClient(base_url=env_url).sync()
 
-    with sync_client:
-        # Reset environment
-        result = sync_client.reset(task_id=task_name)
-        obs = obs_to_dict(result.observation)
-
-        for step_num in range(1, MAX_STEPS + 1):
-            # Format observation for LLM
-            obs_text = format_observation(obs)
-
-            # Safety net: force commit on last step to preserve savings
-            task_max_steps = obs.get("max_steps", MAX_STEPS)
-            if obs.get("step_number", 0) >= task_max_steps - 1:
-                _info(f"Auto-committing on step {step_num} (last step safety net)")
-                action_text = '{"action_type": "commit_changes", "reason": "Final step — committing to preserve savings."}'
-                action_dict = parse_action(action_text)
-            else:
-                # Get LLM action
-                action_text = get_agent_action(llm_client, obs_text, history, parse_failures)
-                action_dict = parse_action(action_text)
-
-            # Track parse failures
-            if action_dict.get("reason", "").startswith("Could not parse"):
-                parse_failures += 1
-            else:
-                parse_failures = 0
-
-            # If stuck in parse failure loop (3+ in a row), commit to save progress
-            if parse_failures >= 3:
-                _warn(f"3 consecutive parse failures — committing to save progress.")
-                action_dict = {"action_type": "commit_changes", "reason": "Committing after repeated parse failures."}
-                parse_failures = 0
-
-            # Build typed Action object for the OpenEnv client
-            action = Action(
-                action_type=action_dict.get("action_type", "commit_changes"),
-                resource_id=action_dict.get("resource_id"),
-                new_size=action_dict.get("new_size"),
-                reason=action_dict.get("reason"),
-            )
-
-            # Execute action
-            result = sync_client.step(action)
+        with sync_client:
+            # Reset environment
+            result = sync_client.reset(task_id=task_name)
             obs = obs_to_dict(result.observation)
-            reward = result.reward if isinstance(result.reward, (int, float)) else 0.0
-            done = result.done
-            rewards.append(reward)
 
-            log_step(step=step_num, action=action_dict, reward=reward, done=done)
+            for step_num in range(1, MAX_STEPS + 1):
+                # Format observation for LLM
+                obs_text = format_observation(obs)
 
-            history.append({
-                "action": action_text,
-                "result": obs.get("message", ""),
-            })
+                # Safety net: force commit on last step to preserve savings
+                task_max_steps = obs.get("max_steps", MAX_STEPS)
+                if obs.get("step_number", 0) >= task_max_steps - 1:
+                    _info(f"Auto-committing on step {step_num} (last step safety net)")
+                    action_text = '{"action_type": "commit_changes", "reason": "Final step — committing to preserve savings."}'
+                    action_dict = parse_action(action_text)
+                else:
+                    # Get LLM action
+                    action_text = get_agent_action(llm_client, obs_text, history, parse_failures)
+                    action_dict = parse_action(action_text)
 
-            if done:
-                break
+                # Track parse failures
+                if action_dict.get("reason", "").startswith("Could not parse"):
+                    parse_failures += 1
+                else:
+                    parse_failures = 0
 
-        # Get final state for scoring
-        try:
-            final_state = sync_client.state()
-            state_dict = final_state.model_dump() if hasattr(final_state, "model_dump") else vars(final_state)
-            _debug(f"Final state keys: {list(state_dict.keys())}")
-            _debug(f"cost_saved={state_dict.get('cost_saved')}, optimal={state_dict.get('optimal_savings')}, violations={state_dict.get('safety_violations')}")
-        except Exception as e:
-            _error(f"Failed to get final state: {e}")
-            state_dict = {}
+                # If stuck in parse failure loop (3+ in a row), commit to save progress
+                if parse_failures >= 3:
+                    _warn(f"3 consecutive parse failures — committing to save progress.")
+                    action_dict = {"action_type": "commit_changes", "reason": "Committing after repeated parse failures."}
+                    parse_failures = 0
 
-    # Score calculation: use grader state if available, otherwise sum rewards
-    score = min(max(sum(rewards), 0.01), 0.99)
+                # Build typed Action object for the OpenEnv client
+                action = Action(
+                    action_type=action_dict.get("action_type", "commit_changes"),
+                    resource_id=action_dict.get("resource_id"),
+                    new_size=action_dict.get("new_size"),
+                    reason=action_dict.get("reason"),
+                )
 
-    actual_savings = state_dict.get("cost_saved", 0)
-    optimal_savings = state_dict.get("optimal_savings", 0)
-    if optimal_savings > 0:
-        ratio = actual_savings / optimal_savings
-        has_violations = len(state_dict.get("safety_violations", [])) > 0
-        _info(f"Savings: ${actual_savings:.2f} / ${optimal_savings:.2f} ({ratio:.0%}), violations={has_violations}")
-        if has_violations:
-            score = 0.01
+                # Execute action
+                result = sync_client.step(action)
+                obs = obs_to_dict(result.observation)
+                reward = result.reward if isinstance(result.reward, (int, float)) else 0.0
+                done = result.done
+                rewards.append(reward)
+
+                # Extract error from observation message (WARNING/CRITICAL = error)
+                obs_msg = obs.get("message", "")
+                step_error = obs_msg if ("WARNING" in obs_msg or "CRITICAL" in obs_msg) else None
+
+                log_step(step=step_num, action=action_dict, reward=reward, done=done, error=step_error)
+
+                history.append({
+                    "action": action_text,
+                    "result": obs_msg,
+                })
+
+                if done:
+                    break
+
+            # Get final state for scoring
+            try:
+                final_state = sync_client.state()
+                state_dict = final_state.model_dump() if hasattr(final_state, "model_dump") else vars(final_state)
+                _debug(f"Final state keys: {list(state_dict.keys())}")
+                _debug(f"cost_saved={state_dict.get('cost_saved')}, optimal={state_dict.get('optimal_savings')}, violations={state_dict.get('safety_violations')}")
+            except Exception as e:
+                _error(f"Failed to get final state: {e}")
+                state_dict = {}
+
+        # Score calculation: use grader state if available, otherwise sum rewards
+        score = min(max(sum(rewards), 0.01), 0.99)
+
+        actual_savings = state_dict.get("cost_saved", 0)
+        optimal_savings = state_dict.get("optimal_savings", 0)
+        if optimal_savings > 0:
+            ratio = actual_savings / optimal_savings
+            has_violations = len(state_dict.get("safety_violations", [])) > 0
+            _info(f"Savings: ${actual_savings:.2f} / ${optimal_savings:.2f} ({ratio:.0%}), violations={has_violations}")
+            if has_violations:
+                score = 0.01
+            else:
+                score = min(max(ratio - (step_num * 0.005), 0.01), 0.99)
         else:
-            score = min(max(ratio - (step_num * 0.005), 0.01), 0.99)
-    else:
-        _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
+            _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
 
-    success = score >= 0.5
-    log_end(success=success, steps=step_num, rewards=rewards)
+        success = score >= 0.5
+
+    except Exception as exc:
+        _error(f"run_task crashed: {exc}")
+        traceback.print_exc(file=sys.stderr)
+        score = 0.01
+        success = False
+        step_num = max(step_num, 1)
+
+    finally:
+        # [END] ALWAYS emitted, even on exception
+        log_end(success=success, steps=max(step_num, 1), rewards=rewards if rewards else [0.0])
 
     return score
 
@@ -378,14 +397,9 @@ def main():
 
     scores = {}
     for task in TASKS:
-        try:
-            score = run_task(llm_client, ENV_URL, task)
-            scores[task] = score
-            _info(f"Task {task}: {score:.3f}")
-        except Exception as e:
-            _error(f"Task {task} failed: {e}")
-            traceback.print_exc(file=sys.stderr)
-            scores[task] = 0.01
+        score = run_task(llm_client, ENV_URL, task)
+        scores[task] = score
+        _info(f"Task {task}: {score:.3f}")
 
     # Print summary to stderr (stdout is reserved for structured logs)
     print("\n" + "=" * 60, file=sys.stderr)
@@ -401,3 +415,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
