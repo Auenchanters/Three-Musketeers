@@ -122,7 +122,10 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         self._message = f"Episode started. Task: {self._task_description}"
 
         self._initialized = True
-        return self._build_observation()
+        obs = self._build_observation()
+        obs.reward = 0.01  # Validator requires ALL scores in (0, 1), even on reset
+        obs.done = False
+        return obs
 
     # --- step ---
 
