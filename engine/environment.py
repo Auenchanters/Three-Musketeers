@@ -179,7 +179,14 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
         }
 
         obs = self._build_observation()
-        obs.reward = reward.value  # Using openenv's Observation reward field
+        # When the episode ends, the validator reads obs.reward as the "task
+        # score" and requires it strictly inside (0, 1).  Use the Grader's
+        # clamped final score (always in [0.01, 0.99]) instead of the raw
+        # per-step reward which can be negative or zero.
+        if self._done:
+            obs.reward = self.get_final_score()  # clamped to [0.01, 0.99]
+        else:
+            obs.reward = reward.value
         obs.done = self._done      # Using openenv's Observation done field
         
         # Add metadata internally or append the info object
