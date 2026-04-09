@@ -32,13 +32,13 @@ class Grader:
         # Check for production violations (catastrophic)
         for v in safety_violations:
             if "production" in v.lower() or "critical" in v.lower():
-                return 0.01
+                return 0.01  # Strictly above 0
 
         # Non-production violations (staging mistakes etc.)
         if difficulty in ("medium", "hard"):
-            return 0.7  # already within (0, 1)
+            return 0.7
 
-        return 0.99
+        return 0.99  # Strictly below 1
 
     @staticmethod
     def compute_final_score(
@@ -86,12 +86,13 @@ class Grader:
         else:
             raw_score = (actual_savings / optimal_savings) * safety_mult
 
-        # Final clamping to strictly inside (0, 1) for validator compliance.
+        # Final clamping to strictly inside (0.01, 0.99) for validator compliance.
         # Handles NaN/Inf by defaulting to 0.01.
         try:
-            clamped_score = float(raw_score)
-            if clamped_score != clamped_score:  # NaN check
-                clamped_score = 0.01
-            return round(min(max(clamped_score, 0.01), 0.99), 4)
-        except (ValueError, TypeError):
+            val = float(raw_score)
+            if val != val:  # NaN check
+                return 0.01
+            # Explicitly force inside (0.01, 0.99)
+            return round(min(max(val, 0.01), 0.99), 4)
+        except (ValueError, TypeError, ZeroDivisionError):
             return 0.01

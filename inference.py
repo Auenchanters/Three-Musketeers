@@ -374,14 +374,16 @@ def run_task(llm_client: OpenAI, env_url: str, task_name: str) -> float:
         if optimal_savings > 0:
             ratio = actual_savings / optimal_savings
             has_violations = len(state_dict.get("safety_violations", [])) > 0
-            _info(f"Savings: ${actual_savings:.2f} / ${optimal_savings:.2f} ({ratio:.0%}), violations={has_violations}")
+            # Use _safe_reward for the info string too, just in case validator parses it
+            safe_ratio = _safe_reward(ratio)
+            _info(f"Performance: {safe_ratio:.4f} (ratio={ratio:.3f}), violations={has_violations}")
             if has_violations:
                 score = 0.01
             else:
-                score = max(0.01, min(0.99, ratio - (step_num * 0.005)))
+                score = _safe_reward(ratio - (step_num * 0.005))
         else:
-            score = max(0.01, min(0.99, sum(rewards) if rewards else 0.5))
-            _warn(f"No optimal_savings in state — using reward-sum score: {score:.3f}")
+            score = _safe_reward(sum(rewards) if rewards else 0.5)
+            _warn(f"No optimal_savings — using safe default score.")
 
         success = score >= 0.5
 
@@ -430,7 +432,8 @@ def main():
         print(f"[RESULT] task={task} score={sc:.4f}", flush=True)
 
     # Summary on stdout (validator may parse this)
-    avg = sum(scores.values()) / len(scores) if scores else 0.50
+    clamped_scores = [sc for sc in scores.values()]
+    avg = sum(clamped_scores) / len(clamped_scores) if clamped_scores else 0.50
     avg = _safe_reward(avg)
     print(f"\n[SUMMARY] Average score: {avg:.4f}", flush=True)
     for task, sc in scores.items():
