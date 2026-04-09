@@ -86,4 +86,12 @@ class Grader:
         else:
             raw_score = (actual_savings / optimal_savings) * safety_mult
 
-        return round(min(max(raw_score, 0.01), 0.99), 4)
+        # Final clamping to strictly inside (0, 1) for validator compliance.
+        # Handles NaN/Inf by defaulting to 0.01.
+        try:
+            clamped_score = float(raw_score)
+            if clamped_score != clamped_score:  # NaN check
+                clamped_score = 0.01
+            return round(min(max(clamped_score, 0.01), 0.99), 4)
+        except (ValueError, TypeError):
+            return 0.01

@@ -14,6 +14,7 @@ import json
 import time
 import traceback
 import httpx
+from typing import Any
 from openai import OpenAI
 from client import CloudFinOpsClient
 from models.action import Action
@@ -89,9 +90,18 @@ RESPOND WITH ONLY JSON. Examples:
 """
 
 
-def _safe_reward(r: float) -> float:
-    """Clamp a value to strictly inside (0, 1) for validator compliance."""
-    return round(min(max(float(r), 0.01), 0.99), 4)
+def _safe_reward(r: Any) -> float:
+    """Clamp a value to strictly inside (0.01, 0.99) for validator compliance.
+    
+    Handles None, NaN, and Inf by defaulting to 0.01.
+    """
+    try:
+        val = float(r)
+        if val != val:  # NaN check
+            return 0.01
+        return round(min(max(val, 0.01), 0.99), 4)
+    except (ValueError, TypeError):
+        return 0.01
 
 
 def log_start(task, env, model):

@@ -574,8 +574,15 @@ class CloudFinOpsEnvironment(Environment[Action, Observation, EnvironmentState])
             rtype = r.resource_type.value if hasattr(r.resource_type, "value") else str(r.resource_type)
             cost_by_type[rtype] = round(cost_by_type.get(rtype, 0.0) + r.cost_per_hour * 730, 2)
 
-        # Clamp reward strictly within (0, 1) — never 0.0 or 1.0
-        safe_reward = round(min(max(float(reward), 0.01), 0.99), 4)
+        # Final clamping to strictly inside (0.01, 0.99) for validator compliance.
+        # Handles NaN/Inf by defaulting to 0.01.
+        try:
+            clamped_reward = float(reward)
+            if clamped_reward != clamped_reward:  # NaN check
+                clamped_reward = 0.01
+            safe_reward = round(min(max(clamped_reward, 0.01), 0.99), 4)
+        except (ValueError, TypeError):
+            safe_reward = 0.01
 
         return Observation(
             task_description=self._task_description,
